@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.hxx"
+#include "impl/common.hxx"
 
 #include <compare>
 #include <exception>
