@@ -136,7 +136,7 @@ namespace cxxalg {
         static_assert(not (std::is_reference_v<Types> or ...));
 
         alignas(Types...) std::byte data_[std::max({sizeof(Types)...})];
-        std::size_t index_ = std::size_t(-1);
+        std::size_t index_ = variant_npos;
 
         static constexpr bool all_copy_constructible = (impl::copy_constructible<Types> and ...);
         static constexpr bool all_move_constructible = (impl::move_constructible<Types> and ...);
