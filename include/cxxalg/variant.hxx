@@ -195,10 +195,10 @@ namespace cxxalg {
         template<typename T, typename TT = impl::best_type_conversion_t<T, Types...>>
         constexpr variant(T&& t)
             noexcept(std::is_nothrow_constructible_v<TT, T>)
-            requires (not std::is_same_v<std::remove_cvref_t<T>, variant>)
-                and (not impl::is_in_place_type_v<std::remove_cvref_t<T>>)
-                and (not impl::is_in_place_index_v<std::remove_cvref_t<T>>)
-                and std::is_constructible_v<TT, T>
+            requires std::is_constructible_v<TT, T>
+                 and (not std::is_same_v<std::remove_cvref_t<T>, variant>)
+                 and (not impl::is_in_place_type_v<std::remove_cvref_t<T>>)
+                 and (not impl::is_in_place_index_v<std::remove_cvref_t<T>>)
         {
             std::construct_at(get_as<TT>(), FWD(t));
             index_ = impl::index_of<TT, Types...>;
@@ -206,7 +206,8 @@ namespace cxxalg {
         // 5
         template<typename T, typename... Args>
         constexpr explicit variant(std::in_place_type_t<T>, Args&&... args)
-            requires std::is_constructible_v<T, Args...> and ((std::is_same_v<T, Types> + ...) == 1)
+            requires std::is_constructible_v<T, Args...>
+                 and ((std::is_same_v<T, Types> + ...) == 1)
         {
             std::construct_at(get_as<T>(), FWD(args)...);
             index_ = impl::index_of<T, Types...>;
@@ -215,7 +216,7 @@ namespace cxxalg {
         template<typename T, typename U, typename... Args>
         constexpr explicit variant(std::in_place_type_t<T>, std::initializer_list<U> il, Args&&... args)
             requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
-                and ((std::is_same_v<T, Types> + ...) == 1)
+                 and ((std::is_same_v<T, Types> + ...) == 1)
         {
             std::construct_at(get_as<T>(), il, FWD(args)...);
             index_ = impl::index_of<T, Types...>;
@@ -311,9 +312,8 @@ namespace cxxalg {
         template<typename T, typename TT = impl::best_type_conversion_t<T, Types...>, auto I = impl::index_of<TT, Types...>>
         constexpr auto operator=(T&& t)
             noexcept(std::is_nothrow_assignable_v<TT&, T> and std::is_nothrow_constructible_v<TT, T>) -> variant&
-            requires (not std::is_same_v<std::remove_cvref_t<T>, variant>)
-                and std::is_constructible_v<TT, T>
-                and std::is_assignable_v<TT&, T>
+            requires std::is_constructible_v<TT, T> and std::is_assignable_v<TT&, T>
+                 and (not std::is_same_v<std::remove_cvref_t<T>, variant>)
         {
             if (index() == I) {
                 *get_as<TT>() = FWD(t);
@@ -342,14 +342,16 @@ namespace cxxalg {
         // 1
         template<typename T, typename... Args>
         auto emplace(Args&&... args) -> T&
-            requires std::is_constructible_v<T, Args...> and ((std::is_same_v<T, Types> + ...) == 1)
+            requires std::is_constructible_v<T, Args...>
+                 and ((std::is_same_v<T, Types> + ...) == 1)
         {
             return emplace<impl::index_of<T, Types...>>(FWD(args)...);
         }
         // 2
         template<typename T, typename U, typename... Args>
         auto emplace(std::initializer_list<U> il, Args&&... args) -> T&
-            requires std::is_constructible_v<T, std::initializer_list<U>&, Args...> and ((std::is_same_v<T, Types> + ...) == 1)
+            requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
+                 and ((std::is_same_v<T, Types> + ...) == 1)
         {
             return emplace<impl::index_of<T, Types...>>(il, FWD(args)...);
         }
@@ -701,51 +703,51 @@ namespace cxxalg {
     inline constexpr bool operator==(variant<Types...> const& a, variant<Types...> const& b)
     {
         return a.index() != b.index() ? false
-            : a.valueless_by_exception() ? true
-            : visit(std::equal_to(), a, b);
+             : a.valueless_by_exception() ? true
+             : visit(std::equal_to(), a, b);
     }
     template<typename... Types>
     inline constexpr bool operator!=(variant<Types...> const& a, variant<Types...> const& b)
     {
         return a.index() != b.index() ? true
-            : a.valueless_by_exception() ? false
-            : visit(std::not_equal_to(), a, b);
+             : a.valueless_by_exception() ? false
+             : visit(std::not_equal_to(), a, b);
     }
     template<typename... Types>
     inline constexpr bool operator< (variant<Types...> const& a, variant<Types...> const& b)
     {
         return b.valueless_by_exception() ? false
-            : a.valueless_by_exception() ? true
-            : a.index() < b.index() ? true
-            : a.index() > b.index() ? false
-            : visit(std::less(), a, b);
+             : a.valueless_by_exception() ? true
+             : a.index() < b.index() ? true
+             : a.index() > b.index() ? false
+             : visit(std::less(), a, b);
     }
     template<typename... Types>
     inline constexpr bool operator<=(variant<Types...> const& a, variant<Types...> const& b)
     {
         return a.valueless_by_exception() ? true
-            : b.valueless_by_exception() ? false
-            : a.index() < b.index() ? true
-            : a.index() > b.index() ? false
-            : visit(std::less_equal(), a, b);
+             : b.valueless_by_exception() ? false
+             : a.index() < b.index() ? true
+             : a.index() > b.index() ? false
+             : visit(std::less_equal(), a, b);
     }
     template<typename... Types>
     inline constexpr bool operator> (variant<Types...> const& a, variant<Types...> const& b)
     {
         return a.valueless_by_exception() ? false
-            : b.valueless_by_exception() ? true
-            : a.index() > b.index() ? true
-            : a.index() < b.index() ? false
-            : visit(std::greater(), a, b);
+             : b.valueless_by_exception() ? true
+             : a.index() > b.index() ? true
+             : a.index() < b.index() ? false
+             : visit(std::greater(), a, b);
     }
     template<typename... Types>
     inline constexpr bool operator>=(variant<Types...> const& a, variant<Types...> const& b)
     {
         return b.valueless_by_exception() ? true
-            : a.valueless_by_exception() ? false
-            : a.index() > b.index() ? true
-            : a.index() < b.index() ? false
-            : visit(std::greater_equal(), a, b);
+             : a.valueless_by_exception() ? false
+             : a.index() > b.index() ? true
+             : a.index() < b.index() ? false
+             : visit(std::greater_equal(), a, b);
     }
 
     template<typename... Types>
@@ -753,10 +755,10 @@ namespace cxxalg {
         -> std::common_comparison_category_t<std::compare_three_way_result_t<Types>...>
     {
         return a.valueless_by_exception() and b.valueless_by_exception() ? std::strong_ordering::equal
-            : a.valueless_by_exception() ? std::strong_ordering::less
-            : b.valueless_by_exception() ? std::strong_ordering::greater
-            : a.index() != b.index() ? (a.index() <=> b.index())
-            : visit(std::compare_three_way(), a, b);
+             : a.valueless_by_exception() ? std::strong_ordering::less
+             : b.valueless_by_exception() ? std::strong_ordering::greater
+             : a.index() != b.index() ? (a.index() <=> b.index())
+             : visit(std::compare_three_way(), a, b);
     }
 
     // swap

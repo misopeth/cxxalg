@@ -131,8 +131,9 @@ namespace cxxalg {
         // 4
         template<typename T, typename TT = std::decay_t<T>>
         any(T&& value)
-            requires (not std::is_same_v<TT, any> and not impl::is_in_place_type_v<TT>)
-                and std::is_copy_constructible_v<TT>
+            requires std::is_copy_constructible_v<TT>
+                 and (not impl::is_in_place_type_v<TT>)
+                 and (not std::is_same_v<TT, any>)
         {
             impl::any_members<TT>::construct(data_, FWD(value));
             meta_ = get_meta_for<TT>();
@@ -149,7 +150,7 @@ namespace cxxalg {
         template<typename T, typename U, typename... Args, typename TT = std::decay_t<T>>
         explicit any(std::in_place_type_t<T>, std::initializer_list<U> il, Args&&... args)
             requires std::is_constructible_v<TT, std::initializer_list<U>&, Args...>
-                and std::is_copy_constructible_v<TT>
+                 and std::is_copy_constructible_v<TT>
         {
             impl::any_members<TT>::construct(data_, il, FWD(args)...);
             meta_ = get_meta_for<TT>();
@@ -192,7 +193,7 @@ namespace cxxalg {
         template<typename T, typename U, typename... Args, typename TT = std::decay_t<T>>
         auto emplace(std::initializer_list<U> il, Args&&... args) -> TT&
             requires std::is_constructible_v<TT, std::initializer_list<U>&, Args...>
-                and std::is_copy_constructible_v<TT>
+                 and std::is_copy_constructible_v<TT>
         {
             any(std::in_place_type<TT>, il, FWD(args)...).swap(*this);
             return *get_as<TT>();

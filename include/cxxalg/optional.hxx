@@ -79,14 +79,14 @@ namespace cxxalg {
         explicit(not std::is_convertible_v<U const&, T>)
         constexpr optional(optional<U> const& that)
             requires std::is_constructible_v<T, U const&>
-                and (not std::is_constructible_v<T, optional<U>&       >
-                and not std::is_constructible_v<T, optional<U> const& >
-                and not std::is_constructible_v<T, optional<U>&&      >
-                and not std::is_constructible_v<T, optional<U> const&&>
-                and not std::is_convertible_v<optional<U>&,        T>
-                and not std::is_convertible_v<optional<U> const&,  T>
-                and not std::is_convertible_v<optional<U>&&,       T>
-                and not std::is_convertible_v<optional<U> const&&, T>)
+                 and (not std::is_constructible_v<T, optional<U>&       >)
+                 and (not std::is_constructible_v<T, optional<U> const& >)
+                 and (not std::is_constructible_v<T, optional<U>&&      >)
+                 and (not std::is_constructible_v<T, optional<U> const&&>)
+                 and (not std::is_convertible_v<optional<U>&,        T>)
+                 and (not std::is_convertible_v<optional<U> const&,  T>)
+                 and (not std::is_convertible_v<optional<U>&&,       T>)
+                 and (not std::is_convertible_v<optional<U> const&&, T>)
         {
             if (that.has_value()) {
                 std::construct_at(get(), *that);
@@ -100,14 +100,14 @@ namespace cxxalg {
         explicit(not std::is_convertible_v<U&&, T>)
         constexpr optional(optional<U>&& that)
             requires std::is_constructible_v<T, U&&>
-                and (not std::is_constructible_v<T, optional<U>&       >
-                and not std::is_constructible_v<T, optional<U> const& >
-                and not std::is_constructible_v<T, optional<U>&&      >
-                and not std::is_constructible_v<T, optional<U> const&&>
-                and not std::is_convertible_v<optional<U>&,        T>
-                and not std::is_convertible_v<optional<U> const&,  T>
-                and not std::is_convertible_v<optional<U>&&,       T>
-                and not std::is_convertible_v<optional<U> const&&, T>)
+                 and (not std::is_constructible_v<T, optional<U>&       >)
+                 and (not std::is_constructible_v<T, optional<U> const& >)
+                 and (not std::is_constructible_v<T, optional<U>&&      >)
+                 and (not std::is_constructible_v<T, optional<U> const&&>)
+                 and (not std::is_convertible_v<optional<U>&,        T>)
+                 and (not std::is_convertible_v<optional<U> const&,  T>)
+                 and (not std::is_convertible_v<optional<U>&&,       T>)
+                 and (not std::is_convertible_v<optional<U> const&&, T>)
         {
             if (that.has_value()) {
                 std::construct_at(get(), MOV(*that));
@@ -137,8 +137,8 @@ namespace cxxalg {
         explicit(not std::is_convertible_v<U&&, T>)
         constexpr optional(U&& value)
             requires std::is_constructible_v<T, U&&>
-                and (not std::is_same_v<std::remove_cvref_t<U>, std::in_place_t>)
-                and (not std::is_same_v<std::remove_cvref_t<U>, optional>)
+                 and (not std::is_same_v<std::remove_cvref_t<U>, std::in_place_t>)
+                 and (not std::is_same_v<std::remove_cvref_t<U>, optional>)
         {
             std::construct_at(get(), FWD(value));
             set_engaged();
@@ -207,9 +207,9 @@ namespace cxxalg {
         // 4
         template<typename U = T>
         constexpr auto operator=(U&& value) -> optional&
-            requires (not std::is_same_v<std::remove_cvref_t<U>, optional>)
-                and std::is_constructible_v<T, U> and std::is_assignable_v<T&, U>
-                and (not std::is_scalar_v<T> or not std::is_same_v<std::decay_t<U>, T>)
+            requires std::is_constructible_v<T, U> and std::is_assignable_v<T&, U>
+                 and (not std::is_same_v<std::remove_cvref_t<U>, optional>)
+                 and (not std::is_scalar_v<T> or not std::is_same_v<std::decay_t<U>, T>)
         {
             if (engaged()) {
                 *get() = FWD(value);
@@ -223,18 +223,18 @@ namespace cxxalg {
         template<typename U>
         constexpr auto operator=(optional<U> const& that) -> optional&
             requires std::is_constructible_v<T, U const&> and std::is_assignable_v<T&, U const&>
-                and (not std::is_constructible_v<T, optional<U>&       >)
-                and (not std::is_constructible_v<T, optional<U> const& >)
-                and (not std::is_constructible_v<T, optional<U>&&      >)
-                and (not std::is_constructible_v<T, optional<U> const&&>)
-                and (not std::is_convertible_v<optional<U>&,        T>)
-                and (not std::is_convertible_v<optional<U> const&,  T>)
-                and (not std::is_convertible_v<optional<U>&&,       T>)
-                and (not std::is_convertible_v<optional<U> const&&, T>)
-                and (not std::is_assignable_v<T&, optional<U>&       >)
-                and (not std::is_assignable_v<T&, optional<U> const& >)
-                and (not std::is_assignable_v<T&, optional<U>&&      >)
-                and (not std::is_assignable_v<T&, optional<U> const&&>)
+                 and (not std::is_constructible_v<T, optional<U>&       >)
+                 and (not std::is_constructible_v<T, optional<U> const& >)
+                 and (not std::is_constructible_v<T, optional<U>&&      >)
+                 and (not std::is_constructible_v<T, optional<U> const&&>)
+                 and (not std::is_convertible_v<optional<U>&,        T>)
+                 and (not std::is_convertible_v<optional<U> const&,  T>)
+                 and (not std::is_convertible_v<optional<U>&&,       T>)
+                 and (not std::is_convertible_v<optional<U> const&&, T>)
+                 and (not std::is_assignable_v<T&, optional<U>&       >)
+                 and (not std::is_assignable_v<T&, optional<U> const& >)
+                 and (not std::is_assignable_v<T&, optional<U>&&      >)
+                 and (not std::is_assignable_v<T&, optional<U> const&&>)
         {
             switch (has_value() | that.has_value() << 1) {
             case 0:
@@ -257,18 +257,18 @@ namespace cxxalg {
         template<typename U>
         constexpr auto operator=(optional<U>&& that) -> optional&
             requires std::is_constructible_v<T, U> and std::is_assignable_v<T&, U>
-                and (not std::is_constructible_v<T, optional<U>&       >)
-                and (not std::is_constructible_v<T, optional<U> const& >)
-                and (not std::is_constructible_v<T, optional<U>&&      >)
-                and (not std::is_constructible_v<T, optional<U> const&&>)
-                and (not std::is_convertible_v<optional<U>&,        T>)
-                and (not std::is_convertible_v<optional<U> const&,  T>)
-                and (not std::is_convertible_v<optional<U>&&,       T>)
-                and (not std::is_convertible_v<optional<U> const&&, T>)
-                and (not std::is_assignable_v<T&, optional<U>&       >)
-                and (not std::is_assignable_v<T&, optional<U> const& >)
-                and (not std::is_assignable_v<T&, optional<U>&&      >)
-                and (not std::is_assignable_v<T&, optional<U> const&&>)
+                 and (not std::is_constructible_v<T, optional<U>&       >)
+                 and (not std::is_constructible_v<T, optional<U> const& >)
+                 and (not std::is_constructible_v<T, optional<U>&&      >)
+                 and (not std::is_constructible_v<T, optional<U> const&&>)
+                 and (not std::is_convertible_v<optional<U>&,        T>)
+                 and (not std::is_convertible_v<optional<U> const&,  T>)
+                 and (not std::is_convertible_v<optional<U>&&,       T>)
+                 and (not std::is_convertible_v<optional<U> const&&, T>)
+                 and (not std::is_assignable_v<T&, optional<U>&       >)
+                 and (not std::is_assignable_v<T&, optional<U> const& >)
+                 and (not std::is_assignable_v<T&, optional<U>&&      >)
+                 and (not std::is_assignable_v<T&, optional<U> const&&>)
         {
             switch (has_value() | that.has_value() << 1) {
             case 0:
@@ -490,49 +490,49 @@ namespace cxxalg {
     inline constexpr bool operator==(optional<T> const& a, optional<U> const& b)
     {
         return a.has_value() != b.has_value() ? false
-            : a.has_value() ? (*a == *b)
-            : true;
+             : a.has_value() ? (*a == *b)
+             : true;
     }
     template<typename T, typename U>
     inline constexpr bool operator!=(optional<T> const& a, optional<U> const& b)
     {
         return a.has_value() != b.has_value() ? true
-            : a.has_value() ? (*a != *b)
-            : false;
+             : a.has_value() ? (*a != *b)
+             : false;
     }
     template<typename T, typename U>
     inline constexpr bool operator< (optional<T> const& a, optional<U> const& b)
     {
         return not b.has_value() ? false
-            : not a.has_value() ? true
-            : (*a < *b);
+             : not a.has_value() ? true
+             : (*a < *b);
     }
     template<typename T, typename U>
     inline constexpr bool operator<=(optional<T> const& a, optional<U> const& b)
     {
         return not a.has_value() ? true
-            : not b.has_value() ? false
-            : (*a <= *b);
+             : not b.has_value() ? false
+             : (*a <= *b);
     }
     template<typename T, typename U>
     inline constexpr bool operator> (optional<T> const& a, optional<U> const& b)
     {
         return not a.has_value() ? false
-            : not b.has_value() ? true
-            : (*a > *b);
+             : not b.has_value() ? true
+             : (*a > *b);
     }
     template<typename T, typename U>
     inline constexpr bool operator>=(optional<T> const& a, optional<U> const& b)
     {
         return not b.has_value() ? true
-            : not a.has_value() ? false
-            : (*a >= *b);
+             : not a.has_value() ? false
+             : (*a >= *b);
     }
     template<typename T, std::three_way_comparable_with<T> U>
     inline constexpr auto operator<=>(optional<T> const& a, optional<U> const& b) -> std::compare_three_way_result_t<T, U>
     {
         return a.has_value() and b.has_value ? (*a <=> *b)
-            : a.has_value() <=> b.has_value();
+             : a.has_value() <=> b.has_value();
     }
     // compare an optional object with a nullopt
     template<typename T>
