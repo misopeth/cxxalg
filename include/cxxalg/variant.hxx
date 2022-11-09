@@ -176,7 +176,7 @@ namespace cxxalg {
         constexpr variant(variant const& that)
             requires (not all_trivially_copy_constructible) and all_copy_constructible
         {
-            if (not valueless_by_exception()) [[likely]] {
+            if (not that.valueless_by_exception()) [[likely]] {
                 copy_construct_[that.index_](data_, that.data_);
                 index_ = that.index_;
             }
@@ -186,7 +186,7 @@ namespace cxxalg {
         constexpr variant(variant&& that) noexcept(all_nothrow_move_constructible)
             requires (not all_trivially_move_constructible) and all_move_constructible
         {
-            if (not valueless_by_exception()) [[likely]] {
+            if (not that.valueless_by_exception()) [[likely]] {
                 move_construct_[that.index_](data_, that.data_);
                 index_ = that.index_;
             }
