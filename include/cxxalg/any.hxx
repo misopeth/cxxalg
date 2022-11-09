@@ -97,7 +97,7 @@ namespace cxxalg {
     }
 
     class any {
-        alignas(impl::any_sbo_align) std::byte data_[impl::any_sbo_size];
+        alignas(impl::any_sbo_align) std::byte storage_[impl::any_sbo_size];
         impl::any_meta const* meta_ = nullptr;
 
     public:
@@ -105,17 +105,17 @@ namespace cxxalg {
         constexpr ~any()
         {
             if (meta_)
-                meta_->destroy(data_);
+                meta_->destroy(storage_);
         }
 
         // (constructor)
         // 1
-        constexpr any() noexcept: data_{} { }
+        constexpr any() noexcept: storage_{} { }
         // 2
         any(any const& that)
         {
             if (that.meta_) {
-                that.meta_->copy_construct(data_, that.data_);
+                that.meta_->copy_construct(storage_, that.storage_);
                 meta_ = that.meta_;
             }
         }
@@ -123,37 +123,37 @@ namespace cxxalg {
         any(any&& that)
         {
             if (that.meta_) {
-                that.meta_->move_construct(data_, that.data_);
+                that.meta_->move_construct(storage_, that.storage_);
                 meta_ = that.meta_;
             }
             that.reset();
         }
         // 4
-        template<typename T, typename TT = std::decay_t<T>>
+        template<typename T, typename D = std::decay_t<T>>
         any(T&& value)
-            requires std::is_copy_constructible_v<TT>
-                 and (not impl::is_in_place_type_v<TT>)
-                 and (not std::is_same_v<TT, any>)
+            requires std::is_copy_constructible_v<D>
+                 and (not impl::is_in_place_type_v<D>)
+                 and (not std::is_same_v<D, any>)
         {
-            impl::any_members<TT>::construct(data_, FWD(value));
-            meta_ = get_meta_for<TT>();
+            impl::any_members<D>::construct(storage_, FWD(value));
+            meta_ = get_meta_for<D>();
         }
         // 5
-        template<typename T, typename... Args, typename TT = std::decay_t<T>>
+        template<typename T, typename... Args, typename D = std::decay_t<T>>
         explicit any(std::in_place_type_t<T>, Args&&... args)
-            requires std::is_constructible_v<TT, Args...> and std::is_copy_constructible_v<TT>
+            requires std::is_constructible_v<D, Args...> and std::is_copy_constructible_v<D>
         {
-            impl::any_members<TT>::construct(data_, FWD(args)...);
-            meta_ = get_meta_for<TT>();
+            impl::any_members<D>::construct(storage_, FWD(args)...);
+            meta_ = get_meta_for<D>();
         }
         // 6
-        template<typename T, typename U, typename... Args, typename TT = std::decay_t<T>>
+        template<typename T, typename U, typename... Args, typename D = std::decay_t<T>>
         explicit any(std::in_place_type_t<T>, std::initializer_list<U> il, Args&&... args)
-            requires std::is_constructible_v<TT, std::initializer_list<U>&, Args...>
-                 and std::is_copy_constructible_v<TT>
+            requires std::is_constructible_v<D, std::initializer_list<U>&, Args...>
+                 and std::is_copy_constructible_v<D>
         {
-            impl::any_members<TT>::construct(data_, il, FWD(args)...);
-            meta_ = get_meta_for<TT>();
+            impl::any_members<D>::construct(storage_, il, FWD(args)...);
+            meta_ = get_meta_for<D>();
         }
 
         // operator=
@@ -172,9 +172,9 @@ namespace cxxalg {
             return *this;
         }
         // 3
-        template<typename T, typename TT = std::decay_t<T>>
+        template<typename T, typename D = std::decay_t<T>>
         auto operator=(T&& value) -> any&
-            requires (not std::is_same_v<TT, any>) and std::is_copy_constructible_v<TT>
+            requires (not std::is_same_v<D, any>) and std::is_copy_constructible_v<D>
         {
             any(FWD(value)).swap(*this);
             return *this;
@@ -182,28 +182,28 @@ namespace cxxalg {
 
         // emplace
         // 1
-        template<typename T, typename... Args, typename TT = std::decay_t<T>>
-        auto emplace(Args&&... args) -> TT&
-            requires std::is_constructible_v<TT, Args...> and std::is_copy_constructible_v<TT>
+        template<typename T, typename... Args, typename D = std::decay_t<T>>
+        auto emplace(Args&&... args) -> D&
+            requires std::is_constructible_v<D, Args...> and std::is_copy_constructible_v<D>
         {
-            any(std::in_place_type<TT>, FWD(args)...).swap(*this);
-            return *get_as<TT>();
+            any(std::in_place_type<D>, FWD(args)...).swap(*this);
+            return *get_as<D>();
         }
         // 2
-        template<typename T, typename U, typename... Args, typename TT = std::decay_t<T>>
-        auto emplace(std::initializer_list<U> il, Args&&... args) -> TT&
-            requires std::is_constructible_v<TT, std::initializer_list<U>&, Args...>
-                 and std::is_copy_constructible_v<TT>
+        template<typename T, typename U, typename... Args, typename D = std::decay_t<T>>
+        auto emplace(std::initializer_list<U> il, Args&&... args) -> D&
+            requires std::is_constructible_v<D, std::initializer_list<U>&, Args...>
+                 and std::is_copy_constructible_v<D>
         {
-            any(std::in_place_type<TT>, il, FWD(args)...).swap(*this);
-            return *get_as<TT>();
+            any(std::in_place_type<D>, il, FWD(args)...).swap(*this);
+            return *get_as<D>();
         }
 
         // reset
         void reset() noexcept
         {
             if (meta_) {
-                meta_->destroy(data_);
+                meta_->destroy(storage_);
                 meta_ = nullptr;
             }
         }
@@ -224,7 +224,7 @@ namespace cxxalg {
                 break;
             case 3:
                 if (type() == that.type()) {
-                    meta_->swap(data_, that.data_);
+                    meta_->swap(storage_, that.storage_);
                 } else {
                     auto tmp = any(MOV(*this));
                     *this = MOV(that);
@@ -251,17 +251,17 @@ namespace cxxalg {
         auto get_as() noexcept
         {
             if constexpr (impl::any_uses_sbo<T>)
-                return impl::any_members<T>::get(data_);
+                return impl::any_members<T>::get(storage_);
             else
-                return *impl::any_members<T>::get(data_);
+                return *impl::any_members<T>::get(storage_);
         }
         template<typename T>
         auto get_as() const noexcept
         {
             if constexpr (impl::any_uses_sbo<T>)
-                return impl::any_members<T>::get(data_);
+                return impl::any_members<T>::get(storage_);
             else
-                return *impl::any_members<T>::get(data_);
+                return *impl::any_members<T>::get(storage_);
         }
 
         template<typename T>

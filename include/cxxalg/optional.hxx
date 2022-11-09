@@ -33,11 +33,12 @@ namespace cxxalg {
 
     template<typename T, typename Traits = tombstone_traits<T>>
     class optional {
-        static constexpr auto smallopt_ = (Traits::spare_representations != 0);
-        alignas(T) std::byte buffer_[sizeof(T) + std::size_t(1 - smallopt_)] = {};
+        static constexpr auto smallopt_ = (traits_type::spare_representations != 0);
+        alignas(T) std::byte storage_[sizeof(T) + std::size_t(1 - smallopt_)] = {};
 
     public:
         using value_type = T;
+        using traits_type = Traits;
 
         // (destructor)
         constexpr ~optional() requires impl::trivially_destructible<T> = default;
@@ -430,29 +431,29 @@ namespace cxxalg {
         }
 
     private:
-        constexpr auto get()       noexcept { return reinterpret_cast<T*      >(&buffer_); }
-        constexpr auto get() const noexcept { return reinterpret_cast<T const*>(&buffer_); }
+        constexpr auto get()       noexcept { return reinterpret_cast<T*      >(&storage_); }
+        constexpr auto get() const noexcept { return reinterpret_cast<T const*>(&storage_); }
 
         constexpr auto engaged() const noexcept -> bool
         {
             if constexpr (smallopt_)
-                return Traits::index(get()) == std::size_t(-1);
+                return traits_type::index(get()) == std::size_t(-1);
             else
-                return (bool)buffer_[sizeof(T)];
+                return (bool)storage_[sizeof(T)];
         }
 
         constexpr void set_engaged() noexcept
         {
             if constexpr (not smallopt_)
-                buffer_[sizeof(T)] = (std::byte)true;
+                storage_[sizeof(T)] = (std::byte)true;
         }
 
         constexpr void set_disengaged() noexcept
         {
             if constexpr (smallopt_)
-                Traits::set_spare_representation(get(), 0);
+                traits_type::set_spare_representation(get(), 0);
             else
-                buffer_[sizeof(T)] = (std::byte)false;
+                storage_[sizeof(T)] = (std::byte)false;
         }
     };
 

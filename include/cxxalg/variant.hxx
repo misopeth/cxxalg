@@ -30,7 +30,7 @@ namespace cxxalg {
     template<typename... Types> struct variant_size<variant<Types...> const>: std::integral_constant<std::size_t, sizeof...(Types)> { };
     template<typename T> inline constexpr auto variant_size_v = variant_size<T>::value;
 
-    template<std::size_t I, typename T>
+    template<std::size_t, typename>
     struct variant_alternative;
     template<std::size_t I, typename Head, typename... Tail>
     struct variant_alternative<I, variant<Head, Tail...>>: variant_alternative<I - 1, variant<Tail...>> { };
@@ -77,38 +77,15 @@ namespace cxxalg {
         template<typename T>
         struct noop_special_members {
             template<typename... Args>
-            static constexpr auto construct(void*, Args&&...) noexcept
-            {
-            }
-
+            static constexpr auto construct(void*, Args&&...) noexcept { }
             template<typename U, typename... Args>
-            static constexpr auto construct(void*, std::initializer_list<U>, Args&&...) noexcept
-            {
-            }
-
-            static constexpr void destroy(void*) noexcept
-            {
-            }
-
-            static constexpr void copy_construct(void*, void const*) noexcept
-            {
-            }
-
-            static constexpr void move_construct(void*, void*) noexcept
-            {
-            }
-
-            static constexpr void copy_assign(void*, void const*) noexcept
-            {
-            }
-
-            static constexpr void move_assign(void*, void*) noexcept
-            {
-            }
-
-            static constexpr void swap(void*, void*) noexcept
-            {
-            }
+            static constexpr auto construct(void*, std::initializer_list<U>, Args&&...) noexcept { }
+            static constexpr void destroy(void*) noexcept { }
+            static constexpr void copy_construct(void*, void const*) noexcept { }
+            static constexpr void move_construct(void*, void*) noexcept { }
+            static constexpr void copy_assign(void*, void const*) noexcept { }
+            static constexpr void move_assign(void*, void*) noexcept { }
+            static constexpr void swap(void*, void*) noexcept { }
         };
     }
 
@@ -135,7 +112,7 @@ namespace cxxalg {
         static_assert(not (std::is_array_v<Types> or ...));
         static_assert(not (std::is_reference_v<Types> or ...));
 
-        alignas(Types...) std::byte data_[std::max({sizeof(Types)...})];
+        alignas(Types...) std::byte storage_[std::max({sizeof(Types)...})];
         std::size_t index_ = variant_npos;
 
         static constexpr bool all_copy_constructible = (impl::copy_constructible<Types> and ...);
@@ -159,16 +136,16 @@ namespace cxxalg {
         constexpr ~variant()
         {
             if (not valueless_by_exception()) [[likely]]
-                destroy_[index()](data_);
+                destroy_[index()](storage_);
         }
 
         // (constructor)
         // 1
-        template<typename T = variant_alternative_t<0, variant>>
-        constexpr variant() noexcept(std::is_nothrow_default_constructible_v<T>)
-            requires std::is_default_constructible_v<T>
+        template<typename A = variant_alternative_t<0, variant>>
+        constexpr variant() noexcept(std::is_nothrow_default_constructible_v<A>)
+            requires std::is_default_constructible_v<A>
         {
-            std::construct_at(get_as<T>());
+            std::construct_at(get_as<A>());
             index_ = 0;
         }
         // 2
@@ -177,7 +154,7 @@ namespace cxxalg {
             requires (not all_trivially_copy_constructible) and all_copy_constructible
         {
             if (not that.valueless_by_exception()) [[likely]] {
-                copy_construct_[that.index_](data_, that.data_);
+                copy_construct_[that.index_](storage_, that.storage_);
                 index_ = that.index_;
             }
         }
@@ -187,21 +164,21 @@ namespace cxxalg {
             requires (not all_trivially_move_constructible) and all_move_constructible
         {
             if (not that.valueless_by_exception()) [[likely]] {
-                move_construct_[that.index_](data_, that.data_);
+                move_construct_[that.index_](storage_, that.storage_);
                 index_ = that.index_;
             }
         }
         // 4
-        template<typename T, typename TT = impl::best_type_conversion_t<T, Types...>>
+        template<typename T, typename A = impl::best_type_conversion_t<T, Types...>>
         constexpr variant(T&& t)
-            noexcept(std::is_nothrow_constructible_v<TT, T>)
-            requires std::is_constructible_v<TT, T>
+            noexcept(std::is_nothrow_constructible_v<A, T>)
+            requires std::is_constructible_v<A, T>
                  and (not std::is_same_v<std::remove_cvref_t<T>, variant>)
                  and (not impl::is_in_place_type_v<std::remove_cvref_t<T>>)
                  and (not impl::is_in_place_index_v<std::remove_cvref_t<T>>)
         {
-            std::construct_at(get_as<TT>(), FWD(t));
-            index_ = impl::index_of<TT, Types...>;
+            std::construct_at(get_as<A>(), FWD(t));
+            index_ = impl::index_of<A, Types...>;
         }
         // 5
         template<typename T, typename... Args>
@@ -222,19 +199,19 @@ namespace cxxalg {
             index_ = impl::index_of<T, Types...>;
         }
         // 7
-        template<std::size_t I, typename... Args, typename T = variant_alternative_t<I, variant>>
+        template<std::size_t I, typename... Args, typename A = variant_alternative_t<I, variant>>
         constexpr explicit variant(std::in_place_index_t<I>, Args&&... args)
-            requires (I < sizeof...(Types)) and std::is_constructible_v<T, Args...>
+            requires (I < sizeof...(Types)) and std::is_constructible_v<A, Args...>
         {
-            std::construct_at(get_as<T>(), FWD(args)...);
+            std::construct_at(get_as<A>(), FWD(args)...);
             index_ = I;
         }
         // 8
-        template<std::size_t I, typename U, typename... Args, typename T = variant_alternative_t<I, variant>>
+        template<std::size_t I, typename U, typename... Args, typename A = variant_alternative_t<I, variant>>
         constexpr explicit variant(std::in_place_index_t<I>, std::initializer_list<U> il, Args&&... args)
-            requires (I < sizeof...(Types)) and std::is_constructible_v<T, std::initializer_list<U>&, Args...>
+            requires (I < sizeof...(Types)) and std::is_constructible_v<A, std::initializer_list<U>&, Args...>
         {
-            std::construct_at(get_as<T>(), il, FWD(args)...);
+            std::construct_at(get_as<A>(), il, FWD(args)...);
             index_ = I;
         }
 
@@ -250,20 +227,20 @@ namespace cxxalg {
             switch (valueless_by_exception() | that.valueless_by_exception() << 1) {
             case 0: [[likely]]
                 if (index_ == that.index_) {
-                    copy_assign_[index_](data_, that.data_);
+                    copy_assign_[index_](storage_, that.storage_);
                 } else {
-                    destroy_[index_](data_);
+                    destroy_[index_](storage_);
                     index_ = variant_npos;
-                    copy_construct_[that.index_](data_, that.data_);
+                    copy_construct_[that.index_](storage_, that.storage_);
                     index_ = that.index_;
                 }
                 break;
             case 1:
-                copy_construct_[that.index_](data_, that.data_);
+                copy_construct_[that.index_](storage_, that.storage_);
                 index_ = that.index_;
                 break;
             case 2:
-                destroy_[index_](data_);
+                destroy_[index_](storage_);
                 index_ = variant_npos;
                 break;
             case 3:
@@ -285,20 +262,20 @@ namespace cxxalg {
             switch (valueless_by_exception() | that.valueless_by_exception() << 1) {
             case 0: [[likely]]
                 if (index_ == that.index_) {
-                    move_assign_[index_](data_, that.data_);
+                    move_assign_[index_](storage_, that.storage_);
                 } else {
-                    destroy_[index_](data_);
+                    destroy_[index_](storage_);
                     index_ = variant_npos;
-                    move_construct_[that.index_](data_, that.data_);
+                    move_construct_[that.index_](storage_, that.storage_);
                     index_ = that.index_;
                 }
                 break;
             case 1:
-                move_construct_[that.index_](data_, that.data_);
+                move_construct_[that.index_](storage_, that.storage_);
                 index_ = that.index_;
                 break;
             case 2:
-                destroy_[index_](data_);
+                destroy_[index_](storage_);
                 index_ = variant_npos;
                 break;
             case 3:
@@ -309,19 +286,19 @@ namespace cxxalg {
             return *this;
         }
         // 3
-        template<typename T, typename TT = impl::best_type_conversion_t<T, Types...>, auto I = impl::index_of<TT, Types...>>
+        template<typename T, typename A = impl::best_type_conversion_t<T, Types...>, auto I = impl::index_of<A, Types...>>
         constexpr auto operator=(T&& t)
-            noexcept(std::is_nothrow_assignable_v<TT&, T> and std::is_nothrow_constructible_v<TT, T>) -> variant&
-            requires std::is_constructible_v<TT, T> and std::is_assignable_v<TT&, T>
+            noexcept(std::is_nothrow_assignable_v<A&, T> and std::is_nothrow_constructible_v<A, T>) -> variant&
+            requires std::is_constructible_v<A, T> and std::is_assignable_v<A&, T>
                  and (not std::is_same_v<std::remove_cvref_t<T>, variant>)
         {
             if (index() == I) {
-                *get_as<TT>() = FWD(t);
+                *get_as<A>() = FWD(t);
             } else {
-                if constexpr (std::is_nothrow_constructible_v<TT, T> or not std::is_nothrow_move_constructible_v<TT>)
+                if constexpr (std::is_nothrow_constructible_v<A, T> or not std::is_nothrow_move_constructible_v<A>)
                     emplace<I>(FWD(t));
                 else
-                    emplace<I>(TT(FWD(t)));
+                    emplace<I>(A(FWD(t)));
             }
             return *this;
         }
@@ -356,30 +333,30 @@ namespace cxxalg {
             return emplace<impl::index_of<T, Types...>>(il, FWD(args)...);
         }
         // 3
-        template<std::size_t I, typename... Args, typename T = variant_alternative_t<I, variant>>
-        constexpr auto emplace(Args&&... args) -> T&
-            requires std::is_constructible_v<T, Args...>
+        template<std::size_t I, typename... Args, typename A = variant_alternative_t<I, variant>>
+        constexpr auto emplace(Args&&... args) -> A&
+            requires std::is_constructible_v<A, Args...>
         {
             if (not valueless_by_exception()) {
-                destroy_[index_](data_);
+                destroy_[index_](storage_);
                 index_ = variant_npos;
             }
-            std::construct_at(get_as<T>(), FWD(args)...);
+            std::construct_at(get_as<A>(), FWD(args)...);
             index_ = I;
-            return *get_as<T>();
+            return *get_as<A>();
         }
         // 4
-        template<std::size_t I, typename U, typename... Args, typename T = variant_alternative_t<I, variant>>
-        constexpr auto emplace(std::initializer_list<U> il, Args&&... args) -> T&
-            requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
+        template<std::size_t I, typename U, typename... Args, typename A = variant_alternative_t<I, variant>>
+        constexpr auto emplace(std::initializer_list<U> il, Args&&... args) -> A&
+            requires std::is_constructible_v<A, std::initializer_list<U>&, Args...>
         {
             if (not valueless_by_exception()) {
-                destroy_[index_](data_);
+                destroy_[index_](storage_);
                 index_ = variant_npos;
             }
-            std::construct_at(get_as<T>(), il, FWD(args)...);
+            std::construct_at(get_as<A>(), il, FWD(args)...);
             index_ = I;
-            return *get_as<T>();
+            return *get_as<A>();
         }
 
         // swap
@@ -389,7 +366,7 @@ namespace cxxalg {
             switch (valueless_by_exception() | that.valueless_by_exception() << 1) {
             case 0: [[likely]]
                 if (index_ == that.index_) {
-                    swap_[index_](data_, that.data_);
+                    swap_[index_](storage_, that.storage_);
                 } else {
                     auto&& tmp = variant(MOV(*this));
                     *this = MOV(that);
@@ -397,15 +374,15 @@ namespace cxxalg {
                 }
                 break;
             case 1:
-                copy_construct_[that.index_](data_, that.data_);
+                copy_construct_[that.index_](storage_, that.storage_);
                 index_ = that.index_;
-                destroy_[that.index_](that.data_);
+                destroy_[that.index_](that.storage_);
                 that.index_ = variant_npos;
                 break;
             case 2:
-                copy_construct_[index_](that.data_, data_);
+                copy_construct_[index_](that.storage_, storage_);
                 that.index_ = index_;
-                destroy_[index_](data_);
+                destroy_[index_](storage_);
                 index_ = variant_npos;
                 break;
             case 3:
@@ -416,8 +393,8 @@ namespace cxxalg {
         }
 
     private:
-        template<typename T> auto get_as()       noexcept { return reinterpret_cast<T*      >(&data_); }
-        template<typename T> auto get_as() const noexcept { return reinterpret_cast<T const*>(&data_); }
+        template<typename T> auto get_as()       noexcept { return reinterpret_cast<T*      >(&storage_); }
+        template<typename T> auto get_as() const noexcept { return reinterpret_cast<T const*>(&storage_); }
 
         using dt_t = void(*)(void*)              noexcept(true);
         using cc_t = void(*)(void*, void const*) noexcept(false);
