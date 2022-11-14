@@ -4,6 +4,7 @@
 
 #include <compare>
 #include <exception>
+#include <functional>
 #include <initializer_list>
 #include <memory>
 #include <type_traits>
@@ -33,7 +34,7 @@ namespace cxxalg {
 
     template<typename T, typename Traits = tombstone_traits<T>>
     class optional {
-        static constexpr auto smallopt_ = (traits_type::spare_representations != 0);
+        static constexpr auto smallopt_ = (Traits::spare_representations != 0);
         alignas(T) std::byte storage_[sizeof(T) + std::size_t(1 - smallopt_)] = {};
 
     public:

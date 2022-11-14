@@ -8,7 +8,7 @@
 
 #include <cassert>
 
-inline void any_text()
+inline void any_test()
 {
     using namespace cxxalg;
 
@@ -182,3 +182,4 @@ inline void any_text()
         auto a = make_any<std::vector<int>>({2, 10});
         assert((any_cast<std::vector<int>>(a) == std::vector{2, 10}));
     }
+}
