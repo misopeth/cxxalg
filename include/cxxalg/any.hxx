@@ -14,7 +14,7 @@
 
 namespace cxxalg {
     struct bad_any_cast: std::bad_cast {
-        using std::bad_cast::bad_cast;
+        using bad_cast::bad_cast;
         auto what() const noexcept -> char const* override { return "bad_any_cast"; }
     };
 
@@ -54,7 +54,8 @@ namespace cxxalg {
             static constexpr void move_construct(void* dst, void* src)
                 noexcept(std::is_nothrow_move_constructible_v<T>)
             {
-                *get(dst) = new T(MOV(**get(src)));
+                *get(dst) = *get(src);
+                *get(src) = nullptr;
             }
 
             static constexpr void copy_assign(void* dst, void const* src)
