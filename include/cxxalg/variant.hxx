@@ -2,8 +2,10 @@
 
 #include "impl/common.hxx"
 
+#include <algorithm>
 #include <compare>
 #include <exception>
+#include <functional>
 #include <initializer_list>
 #include <memory>
 #include <type_traits>
