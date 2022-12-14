@@ -305,4 +305,5 @@ TEST_CASE("optional::emplace", "[optional]") {
 TEST_CASE("small optional", "[optional][nonstd]") {
     REQUIRE(sizeof(optional<bool>) == sizeof(bool));
     REQUIRE(sizeof(optional<optional<bool>>) == sizeof(bool));
+    REQUIRE(sizeof(optional<optional<std::string>>) == sizeof(optional<std::string>));
 }

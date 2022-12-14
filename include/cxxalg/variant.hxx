@@ -78,16 +78,10 @@ namespace cxxalg {
 
         template<typename T>
         struct noop_special_members {
-            template<typename... Args>
-            static constexpr auto construct(void*, Args&&...) noexcept { }
-            template<typename U, typename... Args>
-            static constexpr auto construct(void*, std::initializer_list<U>, Args&&...) noexcept { }
-            static constexpr void destroy(void*) noexcept { }
             static constexpr void copy_construct(void*, void const*) noexcept { }
             static constexpr void move_construct(void*, void*) noexcept { }
             static constexpr void copy_assign(void*, void const*) noexcept { }
             static constexpr void move_assign(void*, void*) noexcept { }
-            static constexpr void swap(void*, void*) noexcept { }
         };
     }
 
@@ -155,7 +149,7 @@ namespace cxxalg {
         constexpr variant(variant const& that)
             requires (not all_trivially_copy_constructible) and all_copy_constructible
         {
-            if (not that.valueless_by_exception()) [[likely]] {
+            if (not that.valueless_by_exception()) { [[likely]]
                 copy_construct_[that.index_](storage_, that.storage_);
                 index_ = that.index_;
             }
@@ -165,7 +159,7 @@ namespace cxxalg {
         constexpr variant(variant&& that) noexcept(all_nothrow_move_constructible)
             requires (not all_trivially_move_constructible) and all_move_constructible
         {
-            if (not that.valueless_by_exception()) [[likely]] {
+            if (not that.valueless_by_exception()) { [[likely]]
                 move_construct_[that.index_](storage_, that.storage_);
                 index_ = that.index_;
             }
