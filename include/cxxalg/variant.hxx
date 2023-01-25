@@ -76,7 +76,6 @@ namespace cxxalg {
         template<typename T, typename... Types>
         using best_type_conversion_t = best_type_conversion<T, Types...>::type;
 
-        template<typename T>
         struct noop_special_members {
             static constexpr void copy_construct(void*, void const*) noexcept { }
             static constexpr void move_construct(void*, void*) noexcept { }
@@ -111,24 +110,24 @@ namespace cxxalg {
         alignas(Types...) std::byte storage_[std::max({sizeof(Types)...})];
         std::size_t index_ = variant_npos;
 
-        static constexpr bool all_copy_constructible = (impl::copy_constructible<Types> and ...);
-        static constexpr bool all_move_constructible = (impl::move_constructible<Types> and ...);
-        static constexpr bool all_copy_assignable    = (impl::copy_assignable<Types>    and ...);
-        static constexpr bool all_move_assignable    = (impl::move_assignable<Types>    and ...);
+        static constexpr bool copy_constructible_ = (impl::copy_constructible<Types> and ...);
+        static constexpr bool move_constructible_ = (impl::move_constructible<Types> and ...);
+        static constexpr bool copy_assignable_    = (impl::copy_assignable<Types>    and ...);
+        static constexpr bool move_assignable_    = (impl::move_assignable<Types>    and ...);
 
-        static constexpr bool all_trivially_destructible       = (impl::trivially_destructible<Types>       and ...);
-        static constexpr bool all_trivially_copy_constructible = (impl::trivially_copy_constructible<Types> and ...);
-        static constexpr bool all_trivially_move_constructible = (impl::trivially_move_constructible<Types> and ...);
-        static constexpr bool all_trivially_copy_assignable    = (impl::trivially_copy_assignable<Types>    and ...);
-        static constexpr bool all_trivially_move_assignable    = (impl::trivially_move_assignable<Types>    and ...);
+        static constexpr bool trivially_destructible_       = (impl::trivially_destructible<Types>       and ...);
+        static constexpr bool trivially_copy_constructible_ = (impl::trivially_copy_constructible<Types> and ...);
+        static constexpr bool trivially_move_constructible_ = (impl::trivially_move_constructible<Types> and ...);
+        static constexpr bool trivially_copy_assignable_    = (impl::trivially_copy_assignable<Types>    and ...);
+        static constexpr bool trivially_move_assignable_    = (impl::trivially_move_assignable<Types>    and ...);
 
-        static constexpr bool all_nothrow_move_constructible = (std::is_nothrow_move_constructible_v<Types> and ...);
-        static constexpr bool all_nothrow_move_assignable    = (std::is_nothrow_move_assignable_v<Types>    and ...);
-        static constexpr bool all_nothrow_swappable          = (std::is_nothrow_swappable_v<Types>          and ...);
+        static constexpr bool nothrow_move_constructible_ = (std::is_nothrow_move_constructible_v<Types> and ...);
+        static constexpr bool nothrow_move_assignable_    = (std::is_nothrow_move_assignable_v<Types>    and ...);
+        static constexpr bool nothrow_swappable_          = (std::is_nothrow_swappable_v<Types>          and ...);
 
     public:
         // (destructor)
-        constexpr ~variant() requires all_trivially_destructible = default;
+        constexpr ~variant() requires trivially_destructible_ = default;
         constexpr ~variant()
         {
             if (not valueless_by_exception()) [[likely]]
@@ -145,9 +144,9 @@ namespace cxxalg {
             index_ = 0;
         }
         // 2
-        constexpr variant(variant const&) requires all_trivially_copy_constructible = default;
+        constexpr variant(variant const&) requires trivially_copy_constructible_ = default;
         constexpr variant(variant const& that)
-            requires (not all_trivially_copy_constructible) and all_copy_constructible
+            requires (not trivially_copy_constructible_) and copy_constructible_
         {
             if (not that.valueless_by_exception()) { [[likely]]
                 copy_construct_[that.index_](storage_, that.storage_);
@@ -155,9 +154,9 @@ namespace cxxalg {
             }
         }
         // 3
-        constexpr variant(variant&&) requires all_trivially_move_constructible = default;
-        constexpr variant(variant&& that) noexcept(all_nothrow_move_constructible)
-            requires (not all_trivially_move_constructible) and all_move_constructible
+        constexpr variant(variant&&) requires trivially_move_constructible_ = default;
+        constexpr variant(variant&& that) noexcept(nothrow_move_constructible_)
+            requires (not trivially_move_constructible_) and move_constructible_
         {
             if (not that.valueless_by_exception()) { [[likely]]
                 move_construct_[that.index_](storage_, that.storage_);
@@ -213,9 +212,9 @@ namespace cxxalg {
 
         // operator=
         // 1
-        constexpr auto operator=(variant const&) -> variant& requires all_trivially_copy_assignable = default;
+        constexpr auto operator=(variant const&) -> variant& requires trivially_copy_assignable_ = default;
         constexpr auto operator=(variant const& that) -> variant&
-            requires (not all_trivially_copy_assignable) and all_copy_assignable
+            requires (not trivially_copy_assignable_) and copy_assignable_
         {
             if (this == &that) [[unlikely]]
                 return *this;
@@ -247,10 +246,10 @@ namespace cxxalg {
             return *this;
         }
         // 2
-        constexpr auto operator=(variant&&) -> variant& requires all_trivially_move_assignable = default;
+        constexpr auto operator=(variant&&) -> variant& requires trivially_move_assignable_ = default;
         constexpr auto operator=(variant&& that)
-            noexcept(all_nothrow_move_constructible and all_nothrow_move_assignable) -> variant&
-            requires (not all_trivially_move_assignable) and all_move_assignable
+            noexcept(nothrow_move_constructible_ and nothrow_move_assignable_) -> variant&
+            requires (not trivially_move_assignable_) and move_assignable_
         {
             if (this == &that) [[unlikely]]
                 return *this;
@@ -357,7 +356,7 @@ namespace cxxalg {
 
         // swap
         constexpr void swap(variant& that)
-            noexcept(all_nothrow_move_constructible and all_nothrow_swappable)
+            noexcept(nothrow_move_constructible_ and nothrow_swappable_)
         {
             switch (valueless_by_exception() | that.valueless_by_exception() << 1) {
             case 0: [[likely]]
@@ -394,16 +393,16 @@ namespace cxxalg {
 
         using dt_t = void(*)(void*)              noexcept(true);
         using cc_t = void(*)(void*, void const*) noexcept(false);
-        using mc_t = void(*)(void*, void      *) noexcept(all_nothrow_move_constructible);
+        using mc_t = void(*)(void*, void      *) noexcept(nothrow_move_constructible_);
         using ca_t = void(*)(void*, void const*) noexcept(false);
-        using ma_t = void(*)(void*, void      *) noexcept(all_nothrow_move_assignable);
-        using sw_t = void(*)(void*, void      *) noexcept(all_nothrow_swappable);
+        using ma_t = void(*)(void*, void      *) noexcept(nothrow_move_assignable_);
+        using sw_t = void(*)(void*, void      *) noexcept(nothrow_swappable_);
 
         template<typename T> using dt_sm = impl::special_members<T>;
-        template<typename T> using cc_sm = std::conditional_t<all_copy_constructible, impl::special_members<T>, impl::noop_special_members<T>>;
-        template<typename T> using mc_sm = std::conditional_t<all_move_constructible, impl::special_members<T>, impl::noop_special_members<T>>;
-        template<typename T> using ca_sm = std::conditional_t<all_copy_assignable,    impl::special_members<T>, impl::noop_special_members<T>>;
-        template<typename T> using ma_sm = std::conditional_t<all_move_assignable,    impl::special_members<T>, impl::noop_special_members<T>>;
+        template<typename T> using cc_sm = std::conditional_t<copy_constructible_, impl::special_members<T>, impl::noop_special_members>;
+        template<typename T> using mc_sm = std::conditional_t<move_constructible_, impl::special_members<T>, impl::noop_special_members>;
+        template<typename T> using ca_sm = std::conditional_t<copy_assignable_,    impl::special_members<T>, impl::noop_special_members>;
+        template<typename T> using ma_sm = std::conditional_t<move_assignable_,    impl::special_members<T>, impl::noop_special_members>;
         template<typename T> using sw_sm = impl::special_members<T>;
 
         static constexpr auto destroy_        = std::array{ static_cast<dt_t>(&dt_sm<Types>::destroy)... };
@@ -572,11 +571,12 @@ namespace cxxalg {
             template<std::size_t I, typename Variant>
             static constexpr auto get_unchecked(Variant&& v) noexcept -> decltype(auto)
             {
-                using T = variant_alternative_t<I, std::remove_reference_t<Variant>>;
-                using U = std::conditional_t<std::is_const_v<T>, T const, T>;
-                using V = std::conditional_t<std::is_lvalue_reference_v<Variant&&>, U&, U&&>;
+                using V = std::remove_reference_t<Variant>;
+                using T = variant_alternative_t<I, V>;
+                using U = std::conditional_t<std::is_const_v<V>, T const, T>;
+                using X = std::conditional_t<std::is_lvalue_reference_v<Variant&&>, U&, U&&>;
 
-                return reinterpret_cast<V>(v);
+                return reinterpret_cast<X>(v);
             }
 
         public:

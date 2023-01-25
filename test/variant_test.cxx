@@ -178,4 +178,17 @@ TEST_CASE("visit(Visitor&&, Variants&&...)", "[variant]") {
     REQUIRE(visit(visitor, v, w) == 8);
 }
 
+TEST_CASE("visit(Visitor&&, Variants&&...) 2", "[variant]") {
+    auto v = variant<int, char>(5);
+    struct {
+        int operator()(int&      ) const { return 0; }
+        int operator()(int const&) const { return 1; }
+        int operator()(int&&     ) const { return 2; }
+        int operator()(char      ) const { return 3; }
+    } visitor;
+    REQUIRE(visit(visitor, v) == 0);
+    REQUIRE(visit(visitor, std::as_const(v)) == 1);
+    REQUIRE(visit(visitor, std::move(v)) == 2);
+}
+
 // TODO
