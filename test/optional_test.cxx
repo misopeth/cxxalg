@@ -2,6 +2,7 @@
 
 #include <cxxalg/optional.hxx>
 
+#include <concepts>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -306,4 +307,56 @@ TEST_CASE("small optional", "[optional][nonstd]") {
     REQUIRE(sizeof(optional<bool>) == sizeof(bool));
     REQUIRE(sizeof(optional<optional<bool>>) == sizeof(bool));
     REQUIRE(sizeof(optional<optional<std::string>>) == sizeof(optional<std::string>));
+}
+
+template<typename T, std::equality_comparable_with<T> auto... Spares>
+struct with_spares {
+    static constexpr auto spare_representations = sizeof...(Spares);
+    static constexpr auto index(T const* p) -> std::size_t
+    {
+        auto ret = -1, i = 0;
+        (((*p == Spares) ? (ret = i, true) : (++i, false)) or ...);
+        return ret;
+    }
+    static constexpr void set_spare_representation(T* p, std::size_t index)
+        requires (sizeof...(Spares) != 0)
+    {
+        auto i = 0;
+        (((index == i) ? (std::construct_at(p, Spares), true) : (++i, false)) or ...);
+    }
+};
+
+TEST_CASE("optional custom traits", "[optional][nonstd]") {
+    REQUIRE(sizeof(optional<int, with_spares<int, 0>>) == sizeof(int));
+    REQUIRE(sizeof(optional<int, with_spares<int, 0, 1>>) == sizeof(int));
+    REQUIRE(sizeof(optional<std::size_t, with_spares<std::size_t, 0>>) == sizeof(std::size_t));
+    REQUIRE(sizeof(optional<void*, with_spares<void*, nullptr>>) == sizeof(void*));
+
+    auto o = optional<int, with_spares<int, 0>>();
+    REQUIRE_FALSE(o);
+    o = 5;
+    REQUIRE(o);
+    REQUIRE(*o == 5);
+    o = 0;
+    REQUIRE_FALSE(o);
+}
+
+TEST_CASE("optional of optional", "[optional][nonstd]") {
+    REQUIRE(sizeof(optional<optional<int>>) == 2 * sizeof(int));
+    REQUIRE(sizeof(optional<optional<int, with_spares<int>>>) == 2 * sizeof(int));
+    REQUIRE(sizeof(optional<optional<int, with_spares<int, 0>>>) == 2 * sizeof(int));
+    REQUIRE(sizeof(optional<optional<int, with_spares<int, 0, 1>>>) == sizeof(int));
+    REQUIRE(sizeof(optional<optional<int, with_spares<int, 0, 1, 2>>>) == sizeof(int));
+
+    auto o = optional<optional<int, with_spares<int, 0, 1>>>();
+    REQUIRE_FALSE(o);
+    o = optional<int, with_spares<int, 0, 1>>();
+    REQUIRE(o);
+    REQUIRE_FALSE(*o);
+    o = 7;
+    REQUIRE(o);
+    REQUIRE(*o);
+    REQUIRE(**o == 7);
+    o = 1;
+    REQUIRE_FALSE(o);
 }

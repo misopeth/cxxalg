@@ -51,8 +51,8 @@ namespace cxxalg {
 
         // (constructor)
         // 1
-        constexpr optional() noexcept = default;
-        constexpr optional(nullopt_t) noexcept { }
+        constexpr optional() noexcept { set_disengaged(); }
+        constexpr optional(nullopt_t) noexcept { set_disengaged(); }
         // 2
         constexpr optional(optional const&) requires impl::trivially_copy_constructible<T> = default;
         constexpr optional(optional const& that) requires impl::copy_constructible<T>
@@ -629,32 +629,24 @@ namespace cxxalg {
         }
     };
 
-    template<typename T>
-    struct tombstone_traits<optional<T>> {
-
-        static constexpr auto spare_representations =
-            (tombstone_traits<T>::spare_representations != 0)
-            ? (tombstone_traits<T>::spare_representations - 1)
-            : tombstone_traits<bool>::spare_representations;
-
-        static constexpr auto index(optional<T> const* p)
+    template<typename T, typename Traits>
+        requires (Traits::spare_representations != 0)
+    struct tombstone_traits<optional<T, Traits>> {
+        static constexpr auto spare_representations = Traits::spare_representations - 1;
+        static constexpr auto index(optional<T, Traits> const* p) -> std::size_t
         {
-            if constexpr (tombstone_traits<T>::spare_representations != 0) {
-                auto i = tombstone_traits<T>::index(&(**p));
-                return (i == std::size_t(-1) or i == 0) ? std::size_t(-1) : (i - 1);
-            } else {
-                return tombstone_traits<bool>::index(&(**p));
-            }
+            auto i = Traits::index(&(**p));
+            return (i == std::size_t(-1) or i == 0) ? -1 : (i - 1);
         }
-
-        static constexpr void set_spare_representation(optional<T>* p, std::size_t i)
+        static constexpr void set_spare_representation(optional<T, Traits>* p, std::size_t index)
         {
-            if constexpr (tombstone_traits<T>::spare_representations != 0)
-                tombstone_traits<T>::set_spare_representation(&(**p), i + 1);
-            else
-                tombstone_traits<bool>::set_spare_representation(&(**p), i);
+            Traits::set_spare_representation(&(**p), index + 1);
         }
     };
+
+    template<typename T, typename Traits>
+        requires (Traits::spare_representations == 0)
+    struct tombstone_traits<optional<T, Traits>>: tombstone_traits<bool> { };
 }
 
 #undef MOV
