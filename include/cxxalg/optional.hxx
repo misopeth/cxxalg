@@ -24,7 +24,7 @@ namespace cxxalg {
     template<typename T>
     struct tombstone_traits {
         static constexpr auto spare_representations = std::size_t(0);
-        static constexpr auto index(T const*) { return std::size_t(-1); }
+        static constexpr auto index(T const*) -> std::size_t = delete;
         static constexpr void set_spare_representation(T*, std::size_t) = delete;
     };
 
@@ -32,11 +32,54 @@ namespace cxxalg {
     struct nullopt_t { explicit constexpr nullopt_t(impl::nullopt_init) { } };
     inline constexpr auto nullopt = nullopt_t(impl::nullopt_init{});
 
-    template<typename T, typename Traits = tombstone_traits<T>>
-    class optional {
-        static constexpr auto smallopt_ = (Traits::spare_representations != 0);
-        alignas(T) std::byte storage_[sizeof(T) + std::size_t(1 - smallopt_)] = {};
+    template<typename T, typename Traits, bool SmallOpt>
+    class optional_base {
+        alignas(T) std::byte storage_[sizeof(T)] = {};
+        bool engaged_ = false;
 
+    public:
+        constexpr auto get()       noexcept { return reinterpret_cast<T*      >(&storage_); }
+        constexpr auto get() const noexcept { return reinterpret_cast<T const*>(&storage_); }
+
+        constexpr auto engaged() const noexcept -> bool
+        {
+            return engaged_;
+        }
+
+        constexpr void set_engaged() noexcept
+        {
+            engaged_ = true;
+        }
+
+        constexpr void set_disengaged() noexcept
+        {
+            engaged_ = false;
+        }
+    };
+
+    template<typename T, typename Traits>
+    class optional_base<T, Traits, true> {
+        alignas(T) std::byte storage_[sizeof(T)] = {};
+
+    public:
+        constexpr auto get()       noexcept { return reinterpret_cast<T*      >(&storage_); }
+        constexpr auto get() const noexcept { return reinterpret_cast<T const*>(&storage_); }
+
+        constexpr auto engaged() const noexcept -> bool
+        {
+            return Traits::index(get()) == std::size_t(-1);
+        }
+
+        constexpr void set_engaged() noexcept { }
+
+        constexpr void set_disengaged() noexcept
+        {
+            Traits::set_spare_representation(get(), 0);
+        }
+    };
+
+    template<typename T, typename Traits = tombstone_traits<T>>
+    class optional: optional_base<T, Traits, Traits::spare_representations != 0> {
     public:
         using value_type = T;
         using traits_type = Traits;
@@ -45,23 +88,23 @@ namespace cxxalg {
         constexpr ~optional() requires impl::trivially_destructible<T> = default;
         constexpr ~optional()
         {
-            if (engaged())
-                std::destroy_at(get());
+            if (this->engaged())
+                std::destroy_at(this->get());
         }
 
         // (constructor)
         // 1
-        constexpr optional() noexcept { set_disengaged(); }
-        constexpr optional(nullopt_t) noexcept { set_disengaged(); }
+        constexpr optional() noexcept { this->set_disengaged(); }
+        constexpr optional(nullopt_t) noexcept { this->set_disengaged(); }
         // 2
         constexpr optional(optional const&) requires impl::trivially_copy_constructible<T> = default;
         constexpr optional(optional const& that) requires impl::copy_constructible<T>
         {
             if (that.has_value()) {
-                std::construct_at(get(), *that);
-                set_engaged();
+                std::construct_at(this->get(), *that);
+                this->set_engaged();
             } else {
-                set_disengaged();
+                this->set_disengaged();
             }
         }
         // 3
@@ -70,10 +113,10 @@ namespace cxxalg {
             requires impl::move_constructible<T>
         {
             if (that.has_value()) {
-                std::construct_at(get(), MOV(*that));
-                set_engaged();
+                std::construct_at(this->get(), MOV(*that));
+                this->set_engaged();
             } else {
-                set_disengaged();
+                this->set_disengaged();
             }
         }
         // 4
@@ -91,10 +134,10 @@ namespace cxxalg {
                  and (not std::is_convertible_v<optional<U> const&&, T>)
         {
             if (that.has_value()) {
-                std::construct_at(get(), *that);
-                set_engaged();
+                std::construct_at(this->get(), *that);
+                this->set_engaged();
             } else {
-                set_disengaged();
+                this->set_disengaged();
             }
         }
         // 5
@@ -112,10 +155,10 @@ namespace cxxalg {
                  and (not std::is_convertible_v<optional<U> const&&, T>)
         {
             if (that.has_value()) {
-                std::construct_at(get(), MOV(*that));
-                set_engaged();
+                std::construct_at(this->get(), MOV(*that));
+                this->set_engaged();
             } else {
-                set_disengaged();
+                this->set_disengaged();
             }
         }
         // 6
@@ -123,16 +166,16 @@ namespace cxxalg {
         constexpr explicit optional(std::in_place_t, Args&&... args)
             requires std::is_constructible_v<T, Args...>
         {
-            std::construct_at(get(), FWD(args)...);
-            set_engaged();
+            std::construct_at(this->get(), FWD(args)...);
+            this->set_engaged();
         }
         // 7
         template<typename U, typename... Args>
         constexpr explicit optional(std::in_place_t, std::initializer_list<U> il,  Args&&... args)
             requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
         {
-            std::construct_at(get(), il, FWD(args)...);
-            set_engaged();
+            std::construct_at(this->get(), il, FWD(args)...);
+            this->set_engaged();
         }
         // 8
         template<typename U = T>
@@ -142,15 +185,15 @@ namespace cxxalg {
                  and (not std::is_same_v<std::remove_cvref_t<U>, std::in_place_t>)
                  and (not std::is_same_v<std::remove_cvref_t<U>, optional>)
         {
-            std::construct_at(get(), FWD(value));
-            set_engaged();
+            std::construct_at(this->get(), FWD(value));
+            this->set_engaged();
         }
 
         // operator=
         // 1
         constexpr auto operator=(nullopt_t) noexcept -> optional&
         {
-            reset();
+            this->reset();
             return *this;
         }
         // 2
@@ -162,19 +205,19 @@ namespace cxxalg {
             if (this == &that) [[unlikely]]
                 return *this;
 
-            switch (has_value() | that.has_value() << 1) {
+            switch (this->has_value() | that.has_value() << 1) {
             case 0:
             default:
                 // Do nothing
                 break;
             case 1:
-                reset();
+                this->reset();
                 break;
             case 2:
-                emplace(*that);
+                this->emplace(*that);
                 break;
             case 3:
-                *get() = *that;
+                *this->get() = *that;
                 break;
             }
             return *this;
@@ -189,19 +232,19 @@ namespace cxxalg {
             if (this == &that) [[unlikely]]
                 return *this;
 
-            switch (has_value() | that.has_value() << 1) {
+            switch (this->has_value() | that.has_value() << 1) {
             case 0:
             default:
                 // Do nothing
                 break;
             case 1:
-                reset();
+                this->reset();
                 break;
             case 2:
-                emplace(MOV(*that));
+                this->emplace(MOV(*that));
                 break;
             case 3:
-                *get() = MOV(*that);
+                *this->get() = MOV(*that);
                 break;
             }
             return *this;
@@ -213,11 +256,11 @@ namespace cxxalg {
                  and (not std::is_same_v<std::remove_cvref_t<U>, optional>)
                  and (not std::is_scalar_v<T> or not std::is_same_v<std::decay_t<U>, T>)
         {
-            if (engaged()) {
-                *get() = FWD(value);
+            if (this->engaged()) {
+                *this->get() = FWD(value);
             } else {
-                std::construct_at(get(), FWD(value));
-                set_engaged();
+                std::construct_at(this->get(), FWD(value));
+                this->set_engaged();
             }
             return *this;
         }
@@ -238,19 +281,19 @@ namespace cxxalg {
                  and (not std::is_assignable_v<T&, optional<U>&&      >)
                  and (not std::is_assignable_v<T&, optional<U> const&&>)
         {
-            switch (has_value() | that.has_value() << 1) {
+            switch (this->has_value() | that.has_value() << 1) {
             case 0:
             default:
                 // Do nothing
                 break;
             case 1:
-                reset();
+                this->reset();
                 break;
             case 2:
-                emplace(*that);
+                this->emplace(*that);
                 break;
             case 3:
-                *get() = *that;
+                *this->get() = *that;
                 break;
             }
             return *this;
@@ -272,19 +315,19 @@ namespace cxxalg {
                  and (not std::is_assignable_v<T&, optional<U>&&      >)
                  and (not std::is_assignable_v<T&, optional<U> const&&>)
         {
-            switch (has_value() | that.has_value() << 1) {
+            switch (this->has_value() | that.has_value() << 1) {
             case 0:
             default:
                 // Do nothing
                 break;
             case 1:
-                reset();
+                this->reset();
                 break;
             case 2:
-                emplace(MOV(*that));
+                this->emplace(MOV(*that));
                 break;
             case 3:
-                *get() = MOV(*that);
+                *this->get() = MOV(*that);
                 break;
             }
             return *this;
@@ -292,50 +335,50 @@ namespace cxxalg {
 
         // operator->
         // operator*
-        constexpr auto operator->() const  noexcept -> T const*  { return get(); }
-        constexpr auto operator->()        noexcept -> T*        { return get(); }
-        constexpr auto operator*() const&  noexcept -> T const&  { return *get(); }
-        constexpr auto operator*() &       noexcept -> T&        { return *get(); }
-        constexpr auto operator*() const&& noexcept -> T const&& { return MOV(*get()); }
-        constexpr auto operator*() &&      noexcept -> T&&       { return MOV(*get()); }
+        constexpr auto operator->() const  noexcept -> T const*  { return this->get(); }
+        constexpr auto operator->()        noexcept -> T*        { return this->get(); }
+        constexpr auto operator*() const&  noexcept -> T const&  { return *this->get(); }
+        constexpr auto operator*() &       noexcept -> T&        { return *this->get(); }
+        constexpr auto operator*() const&& noexcept -> T const&& { return MOV(*this->get()); }
+        constexpr auto operator*() &&      noexcept -> T&&       { return MOV(*this->get()); }
 
         // operator bool
         // has_value
-        constexpr explicit operator bool() const noexcept { return engaged(); }
-        constexpr bool has_value() const noexcept { return engaged(); }
+        constexpr explicit operator bool() const noexcept { return this->engaged(); }
+        constexpr bool has_value() const noexcept { return this->engaged(); }
 
         // value
-        constexpr auto value() & -> T&              { if (not has_value()) [[unlikely]] throw bad_optional_access(); return *get(); }
-        constexpr auto value() const& -> T const&   { if (not has_value()) [[unlikely]] throw bad_optional_access(); return *get(); }
-        constexpr auto value() && -> T&&            { if (not has_value()) [[unlikely]] throw bad_optional_access(); return MOV(*get()); }
-        constexpr auto value() const&& -> T const&& { if (not has_value()) [[unlikely]] throw bad_optional_access(); return MOV(*get()); }
+        constexpr auto value() & -> T&              { if (not this->has_value()) [[unlikely]] throw bad_optional_access(); return *this->get(); }
+        constexpr auto value() const& -> T const&   { if (not this->has_value()) [[unlikely]] throw bad_optional_access(); return *this->get(); }
+        constexpr auto value() && -> T&&            { if (not this->has_value()) [[unlikely]] throw bad_optional_access(); return MOV(*this->get()); }
+        constexpr auto value() const&& -> T const&& { if (not this->has_value()) [[unlikely]] throw bad_optional_access(); return MOV(*this->get()); }
 
         // value_or
         template<typename U>
-        constexpr auto value_or(U&& that) const& -> T { return has_value() ? *get()      : FWD(that); }
+        constexpr auto value_or(U&& that) const& -> T { return this->has_value() ? *this->get()      : FWD(that); }
         template<typename U>
-        constexpr auto value_or(U&& that) &&     -> T { return has_value() ? MOV(*get()) : FWD(that); }
+        constexpr auto value_or(U&& that) &&     -> T { return this->has_value() ? MOV(*this->get()) : FWD(that); }
 
         // and_then
         template<typename F>
         constexpr auto and_then(F&& f) &
         {
-            return has_value() ? std::invoke(FWD(f), *get()) : std::remove_cvref_t<std::invoke_result_t<F, T&>>();
+            return this->has_value() ? std::invoke(FWD(f), *this->get()) : std::remove_cvref_t<std::invoke_result_t<F, T&>>();
         }
         template<typename F>
         constexpr auto and_then(F&& f) const&
         {
-            return has_value() ? std::invoke(FWD(f), *get()) : std::remove_cvref_t<std::invoke_result_t<F, T const&>>();
+            return this->has_value() ? std::invoke(FWD(f), *this->get()) : std::remove_cvref_t<std::invoke_result_t<F, T const&>>();
         }
         template<typename F>
         constexpr auto and_then(F&& f) &&
         {
-            return has_value() ? std::invoke(FWD(f), MOV(*get())) : std::remove_cvref_t<std::invoke_result_t<F, T&&>>();
+            return this->has_value() ? std::invoke(FWD(f), MOV(*this->get())) : std::remove_cvref_t<std::invoke_result_t<F, T&&>>();
         }
         template<typename F>
         constexpr auto and_then(F&& f) const&&
         {
-            return has_value() ? std::invoke(FWD(f), MOV(*get())) : std::remove_cvref_t<std::invoke_result_t<F, T const&&>>();
+            return this->has_value() ? std::invoke(FWD(f), MOV(*this->get())) : std::remove_cvref_t<std::invoke_result_t<F, T const&&>>();
         }
 
         // transform
@@ -343,25 +386,25 @@ namespace cxxalg {
         constexpr auto transform(F&& f) &
         {
             using U = std::remove_cv_t<std::invoke_result_t<F, T&>>;
-            return has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), *get())) : nullopt;
+            return this->has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), *this->get())) : nullopt;
         }
         template<typename F>
         constexpr auto transform(F&& f) const&
         {
             using U = std::remove_cv_t<std::invoke_result_t<F, T const&>>;
-            return has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), *get())) : nullopt;
+            return this->has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), *this->get())) : nullopt;
         }
         template<typename F>
         constexpr auto transform(F&& f) &&
         {
             using U = std::remove_cv_t<std::invoke_result_t<F, T>>;
-            return has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), MOV(*get()))) : nullopt;
+            return this->has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), MOV(*this->get()))) : nullopt;
         }
         template<typename F>
         constexpr auto transform(F&& f) const&&
         {
             using U = std::remove_cv_t<std::invoke_result_t<F, T const>>;
-            return has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), MOV(*get()))) : nullopt;
+            return this->has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), MOV(*this->get()))) : nullopt;
         }
 
         // or_else
@@ -369,27 +412,27 @@ namespace cxxalg {
         constexpr auto or_else(F&& f) const& -> optional
             requires std::copy_constructible<T> and std::invocable<F>
         {
-            return has_value() ? *this : FWD(f)();
+            return this->has_value() ? *this : FWD(f)();
         }
         template<typename F>
         constexpr auto or_else(F&& f) && -> optional
             requires std::move_constructible<T> and std::invocable<F>
         {
-            return has_value() ? MOV(*this) : FWD(f)();
+            return this->has_value() ? MOV(*this) : FWD(f)();
         }
 
         // swap
         constexpr void swap(optional& that)
             noexcept(std::is_nothrow_move_constructible_v<T> and std::is_nothrow_swappable_v<T>)
         {
-            switch (has_value() | that.has_value() << 1) {
+            switch (this->has_value() | that.has_value() << 1) {
             case 0:
             default:
                 // Do nothing;
                 break;
             case 1:
-                that = MOV(*get());
-                reset();
+                that = MOV(*this->get());
+                this->reset();
                 break;
             case 2:
                 *this = MOV(*that);
@@ -397,7 +440,7 @@ namespace cxxalg {
                 break;
             case 3:
                 using std::swap;
-                swap(*get(), *that);
+                swap(*this->get(), *that);
                 break;
             }
         }
@@ -405,9 +448,9 @@ namespace cxxalg {
         // reset
         constexpr void reset() noexcept
         {
-            if (engaged()) {
-                std::destroy_at(get());
-                set_disengaged();
+            if (this->engaged()) {
+                std::destroy_at(this->get());
+                this->set_disengaged();
             }
         }
 
@@ -416,45 +459,19 @@ namespace cxxalg {
         template<typename... Args>
         constexpr auto emplace(Args&&... args) -> T&
         {
-            reset();
-            std::construct_at(get(), FWD(args)...);
-            set_engaged();
-            return *get();
+            this->reset();
+            std::construct_at(this->get(), FWD(args)...);
+            this->set_engaged();
+            return *this->get();
         }
         // 2
         template<typename U, typename... Args>
         constexpr auto emplace(std::initializer_list<U> il, Args&&... args) -> T&
         {
-            reset();
-            std::construct_at(get(), il, FWD(args)...);
-            set_engaged();
-            return *get();
-        }
-
-    private:
-        constexpr auto get()       noexcept { return reinterpret_cast<T*      >(&storage_); }
-        constexpr auto get() const noexcept { return reinterpret_cast<T const*>(&storage_); }
-
-        constexpr auto engaged() const noexcept -> bool
-        {
-            if constexpr (smallopt_)
-                return traits_type::index(get()) == std::size_t(-1);
-            else
-                return (bool)storage_[sizeof(T)];
-        }
-
-        constexpr void set_engaged() noexcept
-        {
-            if constexpr (not smallopt_)
-                storage_[sizeof(T)] = (std::byte)true;
-        }
-
-        constexpr void set_disengaged() noexcept
-        {
-            if constexpr (smallopt_)
-                traits_type::set_spare_representation(get(), 0);
-            else
-                storage_[sizeof(T)] = (std::byte)false;
+            this->reset();
+            std::construct_at(this->get(), il, FWD(args)...);
+            this->set_engaged();
+            return *this->get();
         }
     };
 
