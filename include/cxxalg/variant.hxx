@@ -13,9 +13,6 @@
 
 #include <cstddef>
 
-#define MOV(...) static_cast<std::remove_reference_t<decltype(__VA_ARGS__)>&&>(__VA_ARGS__)
-#define FWD(...) static_cast<decltype(__VA_ARGS__)&&>(__VA_ARGS__)
-
 namespace cxxalg {
     template<typename... Types>
     class variant;
@@ -67,7 +64,7 @@ namespace cxxalg {
         template<typename T>
         struct callable_type_identity {
             auto operator()(T) const noexcept -> T;
-                //requires requires(T&& t, T a[]) { { a[0] = FWD(t) }; };
+                //requires requires(T&& t, T a[]) { { a[0] = std::forward<T>(t) }; };
         };
 
         template<typename T, typename... Types>
@@ -172,7 +169,7 @@ namespace cxxalg {
                  and (not impl::is_in_place_type_v<std::remove_cvref_t<T>>)
                  and (not impl::is_in_place_index_v<std::remove_cvref_t<T>>)
         {
-            std::construct_at(get_as<A>(), FWD(t));
+            std::construct_at(get_as<A>(), std::forward<T>(t));
             index_ = impl::index_of<A, Types...>;
         }
         // 5
@@ -181,7 +178,7 @@ namespace cxxalg {
             requires std::is_constructible_v<T, Args...>
                  and ((std::is_same_v<T, Types> + ...) == 1)
         {
-            std::construct_at(get_as<T>(), FWD(args)...);
+            std::construct_at(get_as<T>(), std::forward<Args>(args)...);
             index_ = impl::index_of<T, Types...>;
         }
         // 6
@@ -190,7 +187,7 @@ namespace cxxalg {
             requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
                  and ((std::is_same_v<T, Types> + ...) == 1)
         {
-            std::construct_at(get_as<T>(), il, FWD(args)...);
+            std::construct_at(get_as<T>(), il, std::forward<Args>(args)...);
             index_ = impl::index_of<T, Types...>;
         }
         // 7
@@ -198,7 +195,7 @@ namespace cxxalg {
         constexpr explicit variant(std::in_place_index_t<I>, Args&&... args)
             requires (I < sizeof...(Types)) and std::is_constructible_v<A, Args...>
         {
-            std::construct_at(get_as<A>(), FWD(args)...);
+            std::construct_at(get_as<A>(), std::forward<Args>(args)...);
             index_ = I;
         }
         // 8
@@ -206,7 +203,7 @@ namespace cxxalg {
         constexpr explicit variant(std::in_place_index_t<I>, std::initializer_list<U> il, Args&&... args)
             requires (I < sizeof...(Types)) and std::is_constructible_v<A, std::initializer_list<U>&, Args...>
         {
-            std::construct_at(get_as<A>(), il, FWD(args)...);
+            std::construct_at(get_as<A>(), il, std::forward<Args>(args)...);
             index_ = I;
         }
 
@@ -288,12 +285,12 @@ namespace cxxalg {
                  and (not std::is_same_v<std::remove_cvref_t<T>, variant>)
         {
             if (index() == I) {
-                *get_as<A>() = FWD(t);
+                *get_as<A>() = std::forward<T>(t);
             } else {
                 if constexpr (std::is_nothrow_constructible_v<A, T> or not std::is_nothrow_move_constructible_v<A>)
-                    emplace<I>(FWD(t));
+                    emplace<I>(std::forward<T>(t));
                 else
-                    emplace<I>(A(FWD(t)));
+                    emplace<I>(A(std::forward<T>(t)));
             }
             return *this;
         }
@@ -317,7 +314,7 @@ namespace cxxalg {
             requires std::is_constructible_v<T, Args...>
                  and ((std::is_same_v<T, Types> + ...) == 1)
         {
-            return emplace<impl::index_of<T, Types...>>(FWD(args)...);
+            return emplace<impl::index_of<T, Types...>>(std::forward<Args>(args)...);
         }
         // 2
         template<typename T, typename U, typename... Args>
@@ -325,7 +322,7 @@ namespace cxxalg {
             requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
                  and ((std::is_same_v<T, Types> + ...) == 1)
         {
-            return emplace<impl::index_of<T, Types...>>(il, FWD(args)...);
+            return emplace<impl::index_of<T, Types...>>(il, std::forward<Args>(args)...);
         }
         // 3
         template<std::size_t I, typename... Args, typename A = variant_alternative_t<I, variant>>
@@ -336,7 +333,7 @@ namespace cxxalg {
                 destroy_[index_](storage_);
                 index_ = variant_npos;
             }
-            std::construct_at(get_as<A>(), FWD(args)...);
+            std::construct_at(get_as<A>(), std::forward<Args>(args)...);
             index_ = I;
             return *get_as<A>();
         }
@@ -349,7 +346,7 @@ namespace cxxalg {
                 destroy_[index_](storage_);
                 index_ = variant_npos;
             }
-            std::construct_at(get_as<A>(), il, FWD(args)...);
+            std::construct_at(get_as<A>(), il, std::forward<Args>(args)...);
             index_ = I;
             return *get_as<A>();
         }
@@ -363,9 +360,9 @@ namespace cxxalg {
                 if (index_ == that.index_) {
                     swap_[index_](storage_, that.storage_);
                 } else {
-                    auto&& tmp = variant(MOV(*this));
-                    *this = MOV(that);
-                    that = MOV(tmp);
+                    auto&& tmp = variant(std::move(*this));
+                    *this = std::move(that);
+                    that = std::move(tmp);
                 }
                 break;
             case 1:
@@ -455,7 +452,7 @@ namespace cxxalg {
             throw bad_variant_access();
 
         using T = variant_alternative_t<I, variant<Types...>>;
-        return MOV(*v.template get_as<T>());
+        return std::move(*v.template get_as<T>());
     }
     template<std::size_t I, typename... Types>
     inline constexpr auto get(variant<Types...> const& v) -> variant_alternative_t<I, variant<Types...>> const&
@@ -473,7 +470,7 @@ namespace cxxalg {
             throw bad_variant_access();
 
         using T = variant_alternative_t<I, variant<Types...>>;
-        return MOV(*v.template get_as<T>());
+        return std::move(*v.template get_as<T>());
     }
     // 2
     template<typename T, typename... Types>
@@ -486,7 +483,7 @@ namespace cxxalg {
         requires ((std::is_same_v<T, Types> + ...) == 1)
     inline constexpr auto get(variant<Types...>&& v) -> T&&
     {
-        return get<impl::index_of<T, Types...>>(MOV(v));
+        return get<impl::index_of<T, Types...>>(std::move(v));
     }
     template<typename T, typename... Types>
         requires ((std::is_same_v<T, Types> + ...) == 1)
@@ -498,7 +495,7 @@ namespace cxxalg {
         requires ((std::is_same_v<T, Types> + ...) == 1)
     inline constexpr auto get(variant<Types...> const&& v) -> T const&&
     {
-        return get<impl::index_of<T, Types...>>(MOV(v));
+        return get<impl::index_of<T, Types...>>(std::move(v));
     }
 
     // get if
@@ -592,9 +589,9 @@ namespace cxxalg {
                 Visitor&& vis, Variants&&... vars, std::index_sequence<Ds...>, std::index_sequence<Ms...>)
                 -> decltype(auto)
             {
-                return std::invoke(FWD(vis),
-                    get_unchecked<(I % Ms) / Ds>(FWD(vars))...);
-                    //get<(I % Ms) / Ds>(FWD(vars))...);
+                return std::invoke(std::forward<Visitor>(vis),
+                    get_unchecked<(I % Ms) / Ds>(std::forward<Variants>(vars))...);
+                    //get<(I % Ms) / Ds>(std::forward<Variants>(vars))...);
             }
         };
 
@@ -618,7 +615,7 @@ namespace cxxalg {
             template<std::size_t I>
             static constexpr auto visit_at(Visitor&& vis, Variants&&... vars) -> result_type
             {
-                return visitor::template visit_at_common<I>(FWD(vis), FWD(vars)..., visitor::divisors, visitor::moduli);
+                return visitor::template visit_at_common<I>(std::forward<Visitor>(vis), std::forward<Variants>(vars)..., visitor::divisors, visitor::moduli);
             }
 
         public:
@@ -636,7 +633,7 @@ namespace cxxalg {
             template<std::size_t I>
             static constexpr auto visit_at(Visitor&& vis, Variants&&... vars) -> result_type
             {
-                return visitor_r::template visit_at_common<I>(FWD(vis), FWD(vars)..., visitor_r::divisors, visitor_r::moduli);
+                return visitor_r::template visit_at_common<I>(std::forward<Visitor>(vis), std::forward<Variants>(vars)..., visitor_r::divisors, visitor_r::moduli);
             }
 
         public:
@@ -656,7 +653,7 @@ namespace cxxalg {
         using visitor = impl::visitor<Visitor, Variants...>;
         auto index = [&]<std::size_t... D>(std::index_sequence<D...>) {
             return ((vars.index() * D) + ... + 0); }(visitor::divisors);
-        return visitor::visitors[index](FWD(vis), FWD(vars)...);
+        return visitor::visitors[index](std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
     }
     // 2
     template<typename R, typename Visitor, typename... Variants>
@@ -668,7 +665,7 @@ namespace cxxalg {
         using visitor = impl::visitor_r<R, Visitor, Variants...>;
         auto index = [&]<std::size_t... D>(std::index_sequence<D...>) {
             return ((vars.index() * D) + ... + 0); }(visitor::divisors);
-        return visitor::visitors[index](FWD(vis), FWD(vars)...);
+        return visitor::visitors[index](std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
     }
 
     // comparison
@@ -742,6 +739,3 @@ namespace cxxalg {
         a.swap(b);
     }
 }
-
-#undef MOV
-#undef FWD

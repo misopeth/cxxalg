@@ -9,9 +9,6 @@
 
 #include <cstddef>
 
-#define MOV(...) static_cast<std::remove_reference_t<decltype(__VA_ARGS__)>&&>(__VA_ARGS__)
-#define FWD(...) static_cast<decltype(__VA_ARGS__)&&>(__VA_ARGS__)
-
 namespace cxxalg {
     struct bad_any_cast: std::bad_cast {
         using bad_cast::bad_cast;
@@ -29,7 +26,7 @@ namespace cxxalg {
                 noexcept(std::is_nothrow_constructible_v<T, Args...>)
                 requires std::is_constructible_v<T, Args...>
             {
-                return *get(dst) = new T(FWD(args)...);
+                return *get(dst) = new T(std::forward<Args>(args)...);
             }
 
             template<typename U, typename... Args>
@@ -37,7 +34,7 @@ namespace cxxalg {
                 noexcept(std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>)
                 requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
             {
-                return *get(dst) = new T(il, FWD(args)...);
+                return *get(dst) = new T(il, std::forward<Args>(args)...);
             }
 
             static constexpr void destroy(void* ptr) noexcept
@@ -67,7 +64,7 @@ namespace cxxalg {
             static constexpr void move_assign(void* dst, void* src)
                 noexcept(std::is_nothrow_move_assignable_v<T>)
             {
-                **get(dst) = MOV(**get(src));
+                **get(dst) = std::move(**get(src));
             }
 
             static constexpr void swap(void* a, void* b)
@@ -136,7 +133,7 @@ namespace cxxalg {
                  and (not impl::is_in_place_type_v<D>)
                  and (not std::is_same_v<D, any>)
         {
-            impl::any_members<D>::construct(storage_, FWD(value));
+            impl::any_members<D>::construct(storage_, std::forward<T>(value));
             meta_ = get_meta_for<D>();
         }
         // 5
@@ -144,7 +141,7 @@ namespace cxxalg {
         explicit any(std::in_place_type_t<T>, Args&&... args)
             requires std::is_constructible_v<D, Args...> and std::is_copy_constructible_v<D>
         {
-            impl::any_members<D>::construct(storage_, FWD(args)...);
+            impl::any_members<D>::construct(storage_, std::forward<Args>(args)...);
             meta_ = get_meta_for<D>();
         }
         // 6
@@ -153,7 +150,7 @@ namespace cxxalg {
             requires std::is_constructible_v<D, std::initializer_list<U>&, Args...>
                  and std::is_copy_constructible_v<D>
         {
-            impl::any_members<D>::construct(storage_, il, FWD(args)...);
+            impl::any_members<D>::construct(storage_, il, std::forward<Args>(args)...);
             meta_ = get_meta_for<D>();
         }
 
@@ -169,7 +166,7 @@ namespace cxxalg {
         auto operator=(any&& that) -> any&
         {
             if (this != &that) [[likely]]
-                any(MOV(that)).swap(*this);
+                any(std::move(that)).swap(*this);
             return *this;
         }
         // 3
@@ -177,7 +174,7 @@ namespace cxxalg {
         auto operator=(T&& value) -> any&
             requires (not std::is_same_v<D, any>) and std::is_copy_constructible_v<D>
         {
-            any(FWD(value)).swap(*this);
+            any(std::forward<T>(value)).swap(*this);
             return *this;
         }
 
@@ -187,7 +184,7 @@ namespace cxxalg {
         auto emplace(Args&&... args) -> D&
             requires std::is_constructible_v<D, Args...> and std::is_copy_constructible_v<D>
         {
-            any(std::in_place_type<D>, FWD(args)...).swap(*this);
+            any(std::in_place_type<D>, std::forward<Args>(args)...).swap(*this);
             return *get_as<D>();
         }
         // 2
@@ -196,7 +193,7 @@ namespace cxxalg {
             requires std::is_constructible_v<D, std::initializer_list<U>&, Args...>
                  and std::is_copy_constructible_v<D>
         {
-            any(std::in_place_type<D>, il, FWD(args)...).swap(*this);
+            any(std::in_place_type<D>, il, std::forward<Args>(args)...).swap(*this);
             return *get_as<D>();
         }
 
@@ -218,18 +215,18 @@ namespace cxxalg {
                 // Do nothing;
                 break;
             case 1:
-                new(&that) any(MOV(*this));
+                new(&that) any(std::move(*this));
                 break;
             case 2:
-                new(this) any(MOV(that));
+                new(this) any(std::move(that));
                 break;
             case 3:
                 if (type() == that.type()) {
                     meta_->swap(storage_, that.storage_);
                 } else {
-                    auto tmp = any(MOV(*this));
-                    *this = MOV(that);
-                    that = MOV(tmp);
+                    auto tmp = any(std::move(*this));
+                    *this = std::move(that);
+                    that = std::move(tmp);
                 }
                 break;
             }
@@ -331,7 +328,7 @@ namespace cxxalg {
         if (a.type() != typeid(T))
             throw bad_any_cast();
 
-        return MOV(*a.get_as<T>());
+        return std::move(*a.get_as<T>());
     }
     // 4
     template<typename T>
@@ -351,15 +348,12 @@ namespace cxxalg {
     template<typename T, typename... Args >
     inline auto make_any(Args&&... args) -> any
     {
-        return any(std::in_place_type<T>, FWD(args)...);
+        return any(std::in_place_type<T>, std::forward<Args>(args)...);
     }
     // 2
     template<typename T, typename U, typename... Args >
     inline auto make_any(std::initializer_list<U> il, Args&&... args) -> any
     {
-        return any(std::in_place_type<T>, il, FWD(args)...);
+        return any(std::in_place_type<T>, il, std::forward<Args>(args)...);
     }
 }
-
-#undef MOV
-#undef FWD

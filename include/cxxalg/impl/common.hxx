@@ -7,9 +7,6 @@
 
 #include <cstddef>
 
-#define MOV(...) static_cast<std::remove_reference_t<decltype(__VA_ARGS__)>&&>(__VA_ARGS__)
-#define FWD(...) static_cast<decltype(__VA_ARGS__)&&>(__VA_ARGS__)
-
 namespace cxxalg::impl {
     template<typename T>
     concept trivially_destructible = std::is_trivially_destructible_v<T>;
@@ -60,7 +57,7 @@ namespace cxxalg::impl {
             noexcept(std::is_nothrow_constructible_v<T, Args...>)
             requires std::is_constructible_v<T, Args...>
         {
-            return std::construct_at(get(dst), FWD(args)...);
+            return std::construct_at(get(dst), std::forward<Args>(args)...);
         }
 
         template<typename U, typename... Args>
@@ -68,7 +65,7 @@ namespace cxxalg::impl {
             noexcept(std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>)
             requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
         {
-            return std::construct_at(get(dst), il, FWD(args)...);
+            return std::construct_at(get(dst), il, std::forward<Args>(args)...);
         }
 
         static constexpr void destroy(void* ptr) noexcept
@@ -85,7 +82,7 @@ namespace cxxalg::impl {
         static constexpr void move_construct(void* dst, void* src)
             noexcept(std::is_nothrow_move_constructible_v<T>)
         {
-            std::construct_at(get(dst), MOV(*get(src)));
+            std::construct_at(get(dst), std::move(*get(src)));
         }
 
         static constexpr void copy_assign(void* dst, void const* src)
@@ -97,7 +94,7 @@ namespace cxxalg::impl {
         static constexpr void move_assign(void* dst, void* src)
             noexcept(std::is_nothrow_move_assignable_v<T>)
         {
-            *get(dst) = MOV(*get(src));
+            *get(dst) = std::move(*get(src));
         }
 
         static constexpr void swap(void* a, void* b)
@@ -108,6 +105,3 @@ namespace cxxalg::impl {
         }
     };
 }
-
-#undef MOV
-#undef FWD

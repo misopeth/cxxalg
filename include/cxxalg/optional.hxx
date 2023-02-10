@@ -12,9 +12,6 @@
 
 #include <cstddef>
 
-#define MOV(...) static_cast<std::remove_reference_t<decltype(__VA_ARGS__)>&&>(__VA_ARGS__)
-#define FWD(...) static_cast<decltype(__VA_ARGS__)&&>(__VA_ARGS__)
-
 namespace cxxalg {
     struct bad_optional_access: std::exception {
         using std::exception::exception;
@@ -113,7 +110,7 @@ namespace cxxalg {
             requires impl::move_constructible<T>
         {
             if (that.has_value()) {
-                std::construct_at(this->get(), MOV(*that));
+                std::construct_at(this->get(), std::move(*that));
                 this->set_engaged();
             } else {
                 this->set_disengaged();
@@ -155,7 +152,7 @@ namespace cxxalg {
                  and (not std::is_convertible_v<optional<U> const&&, T>)
         {
             if (that.has_value()) {
-                std::construct_at(this->get(), MOV(*that));
+                std::construct_at(this->get(), std::move(*that));
                 this->set_engaged();
             } else {
                 this->set_disengaged();
@@ -166,7 +163,7 @@ namespace cxxalg {
         constexpr explicit optional(std::in_place_t, Args&&... args)
             requires std::is_constructible_v<T, Args...>
         {
-            std::construct_at(this->get(), FWD(args)...);
+            std::construct_at(this->get(), std::forward<Args>(args)...);
             this->set_engaged();
         }
         // 7
@@ -174,7 +171,7 @@ namespace cxxalg {
         constexpr explicit optional(std::in_place_t, std::initializer_list<U> il,  Args&&... args)
             requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
         {
-            std::construct_at(this->get(), il, FWD(args)...);
+            std::construct_at(this->get(), il, std::forward<Args>(args)...);
             this->set_engaged();
         }
         // 8
@@ -185,7 +182,7 @@ namespace cxxalg {
                  and (not std::is_same_v<std::remove_cvref_t<U>, std::in_place_t>)
                  and (not std::is_same_v<std::remove_cvref_t<U>, optional>)
         {
-            std::construct_at(this->get(), FWD(value));
+            std::construct_at(this->get(), std::forward<U>(value));
             this->set_engaged();
         }
 
@@ -241,10 +238,10 @@ namespace cxxalg {
                 this->reset();
                 break;
             case 2:
-                this->emplace(MOV(*that));
+                this->emplace(std::move(*that));
                 break;
             case 3:
-                *this->get() = MOV(*that);
+                *this->get() = std::move(*that);
                 break;
             }
             return *this;
@@ -257,9 +254,9 @@ namespace cxxalg {
                  and (not std::is_scalar_v<T> or not std::is_same_v<std::decay_t<U>, T>)
         {
             if (this->engaged()) {
-                *this->get() = FWD(value);
+                *this->get() = std::forward<U>(value);
             } else {
-                std::construct_at(this->get(), FWD(value));
+                std::construct_at(this->get(), std::forward<U>(value));
                 this->set_engaged();
             }
             return *this;
@@ -324,10 +321,10 @@ namespace cxxalg {
                 this->reset();
                 break;
             case 2:
-                this->emplace(MOV(*that));
+                this->emplace(std::move(*that));
                 break;
             case 3:
-                *this->get() = MOV(*that);
+                *this->get() = std::move(*that);
                 break;
             }
             return *this;
@@ -339,8 +336,8 @@ namespace cxxalg {
         constexpr auto operator->()        noexcept -> T*        { return this->get(); }
         constexpr auto operator*() const&  noexcept -> T const&  { return *this->get(); }
         constexpr auto operator*() &       noexcept -> T&        { return *this->get(); }
-        constexpr auto operator*() const&& noexcept -> T const&& { return MOV(*this->get()); }
-        constexpr auto operator*() &&      noexcept -> T&&       { return MOV(*this->get()); }
+        constexpr auto operator*() const&& noexcept -> T const&& { return std::move(*this->get()); }
+        constexpr auto operator*() &&      noexcept -> T&&       { return std::move(*this->get()); }
 
         // operator bool
         // has_value
@@ -350,35 +347,35 @@ namespace cxxalg {
         // value
         constexpr auto value() & -> T&              { if (not this->has_value()) [[unlikely]] throw bad_optional_access(); return *this->get(); }
         constexpr auto value() const& -> T const&   { if (not this->has_value()) [[unlikely]] throw bad_optional_access(); return *this->get(); }
-        constexpr auto value() && -> T&&            { if (not this->has_value()) [[unlikely]] throw bad_optional_access(); return MOV(*this->get()); }
-        constexpr auto value() const&& -> T const&& { if (not this->has_value()) [[unlikely]] throw bad_optional_access(); return MOV(*this->get()); }
+        constexpr auto value() && -> T&&            { if (not this->has_value()) [[unlikely]] throw bad_optional_access(); return std::move(*this->get()); }
+        constexpr auto value() const&& -> T const&& { if (not this->has_value()) [[unlikely]] throw bad_optional_access(); return std::move(*this->get()); }
 
         // value_or
         template<typename U>
-        constexpr auto value_or(U&& that) const& -> T { return this->has_value() ? *this->get()      : FWD(that); }
+        constexpr auto value_or(U&& that) const& -> T { return this->has_value() ? *this->get()            : std::forward<U>(that); }
         template<typename U>
-        constexpr auto value_or(U&& that) &&     -> T { return this->has_value() ? MOV(*this->get()) : FWD(that); }
+        constexpr auto value_or(U&& that) &&     -> T { return this->has_value() ? std::move(*this->get()) : std::forward<U>(that); }
 
         // and_then
         template<typename F>
         constexpr auto and_then(F&& f) &
         {
-            return this->has_value() ? std::invoke(FWD(f), *this->get()) : std::remove_cvref_t<std::invoke_result_t<F, T&>>();
+            return this->has_value() ? std::invoke(std::forward<F>(f), *this->get()) : std::remove_cvref_t<std::invoke_result_t<F, T&>>();
         }
         template<typename F>
         constexpr auto and_then(F&& f) const&
         {
-            return this->has_value() ? std::invoke(FWD(f), *this->get()) : std::remove_cvref_t<std::invoke_result_t<F, T const&>>();
+            return this->has_value() ? std::invoke(std::forward<F>(f), *this->get()) : std::remove_cvref_t<std::invoke_result_t<F, T const&>>();
         }
         template<typename F>
         constexpr auto and_then(F&& f) &&
         {
-            return this->has_value() ? std::invoke(FWD(f), MOV(*this->get())) : std::remove_cvref_t<std::invoke_result_t<F, T&&>>();
+            return this->has_value() ? std::invoke(std::forward<F>(f), std::move(*this->get())) : std::remove_cvref_t<std::invoke_result_t<F, T&&>>();
         }
         template<typename F>
         constexpr auto and_then(F&& f) const&&
         {
-            return this->has_value() ? std::invoke(FWD(f), MOV(*this->get())) : std::remove_cvref_t<std::invoke_result_t<F, T const&&>>();
+            return this->has_value() ? std::invoke(std::forward<F>(f), std::move(*this->get())) : std::remove_cvref_t<std::invoke_result_t<F, T const&&>>();
         }
 
         // transform
@@ -386,25 +383,25 @@ namespace cxxalg {
         constexpr auto transform(F&& f) &
         {
             using U = std::remove_cv_t<std::invoke_result_t<F, T&>>;
-            return this->has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), *this->get())) : nullopt;
+            return this->has_value() ? optional<U>(std::in_place, std::invoke(std::forward<F>(f), *this->get())) : nullopt;
         }
         template<typename F>
         constexpr auto transform(F&& f) const&
         {
             using U = std::remove_cv_t<std::invoke_result_t<F, T const&>>;
-            return this->has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), *this->get())) : nullopt;
+            return this->has_value() ? optional<U>(std::in_place, std::invoke(std::forward<F>(f), *this->get())) : nullopt;
         }
         template<typename F>
         constexpr auto transform(F&& f) &&
         {
             using U = std::remove_cv_t<std::invoke_result_t<F, T>>;
-            return this->has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), MOV(*this->get()))) : nullopt;
+            return this->has_value() ? optional<U>(std::in_place, std::invoke(std::forward<F>(f), std::move(*this->get()))) : nullopt;
         }
         template<typename F>
         constexpr auto transform(F&& f) const&&
         {
             using U = std::remove_cv_t<std::invoke_result_t<F, T const>>;
-            return this->has_value() ? optional<U>(std::in_place, std::invoke(FWD(f), MOV(*this->get()))) : nullopt;
+            return this->has_value() ? optional<U>(std::in_place, std::invoke(std::forward<F>(f), std::move(*this->get()))) : nullopt;
         }
 
         // or_else
@@ -412,13 +409,13 @@ namespace cxxalg {
         constexpr auto or_else(F&& f) const& -> optional
             requires std::copy_constructible<T> and std::invocable<F>
         {
-            return this->has_value() ? *this : FWD(f)();
+            return this->has_value() ? *this : std::forward<F>(f)();
         }
         template<typename F>
         constexpr auto or_else(F&& f) && -> optional
             requires std::move_constructible<T> and std::invocable<F>
         {
-            return this->has_value() ? MOV(*this) : FWD(f)();
+            return this->has_value() ? std::move(*this) : std::forward<F>(f)();
         }
 
         // swap
@@ -431,11 +428,11 @@ namespace cxxalg {
                 // Do nothing;
                 break;
             case 1:
-                that = MOV(*this->get());
+                that = std::move(*this->get());
                 this->reset();
                 break;
             case 2:
-                *this = MOV(*that);
+                *this = std::move(*that);
                 that.reset();
                 break;
             case 3:
@@ -460,7 +457,7 @@ namespace cxxalg {
         constexpr auto emplace(Args&&... args) -> T&
         {
             this->reset();
-            std::construct_at(this->get(), FWD(args)...);
+            std::construct_at(this->get(), std::forward<Args>(args)...);
             this->set_engaged();
             return *this->get();
         }
@@ -469,7 +466,7 @@ namespace cxxalg {
         constexpr auto emplace(std::initializer_list<U> il, Args&&... args) -> T&
         {
             this->reset();
-            std::construct_at(this->get(), il, FWD(args)...);
+            std::construct_at(this->get(), il, std::forward<Args>(args)...);
             this->set_engaged();
             return *this->get();
         }
@@ -488,19 +485,19 @@ namespace cxxalg {
     template<typename T>
     inline constexpr auto make_optional(T&& value) -> optional<std::decay_t<T>>
     {
-        return optional<std::decay_t<T>>(FWD(value));
+        return optional<std::decay_t<T>>(std::forward<T>(value));
     }
     // 2
     template<typename T, typename... Args>
     inline constexpr auto make_optional(Args&&... args) -> optional<T>
     {
-        return optional<T>(std::in_place, FWD(args)...);
+        return optional<T>(std::in_place, std::forward<Args>(args)...);
     }
     // 3
     template<typename T, typename U, typename... Args>
     inline constexpr auto make_optional(std::initializer_list<U> il, Args&&... args) -> optional<T>
     {
-        return optional<T>(std::in_place, il, FWD(args)...);
+        return optional<T>(std::in_place, il, std::forward<Args>(args)...);
     }
 
     // comparison
@@ -665,6 +662,3 @@ namespace cxxalg {
         requires (Traits::spare_representations == 0)
     struct tombstone_traits<optional<T, Traits>>: tombstone_traits<bool> { };
 }
-
-#undef MOV
-#undef FWD
