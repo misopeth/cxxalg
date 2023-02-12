@@ -29,54 +29,56 @@ namespace cxxalg {
     struct nullopt_t { explicit constexpr nullopt_t(impl::nullopt_init) { } };
     inline constexpr auto nullopt = nullopt_t(impl::nullopt_init{});
 
-    template<typename T, typename Traits, bool SmallOpt>
-    class optional_base {
-        alignas(T) std::byte storage_[sizeof(T)] = {};
-        bool engaged_ = false;
+    namespace impl {
+        template<typename T, typename Traits, bool SmallOpt>
+        class optional_base {
+            alignas(T) std::byte storage_[sizeof(T)] = {};
+            bool engaged_ = false;
 
-    public:
-        constexpr auto get()       noexcept { return reinterpret_cast<T*      >(&storage_); }
-        constexpr auto get() const noexcept { return reinterpret_cast<T const*>(&storage_); }
+        public:
+            constexpr auto get()       noexcept { return reinterpret_cast<T*      >(&storage_); }
+            constexpr auto get() const noexcept { return reinterpret_cast<T const*>(&storage_); }
 
-        constexpr auto engaged() const noexcept -> bool
-        {
-            return engaged_;
-        }
+            constexpr auto engaged() const noexcept -> bool
+            {
+                return engaged_;
+            }
 
-        constexpr void set_engaged() noexcept
-        {
-            engaged_ = true;
-        }
+            constexpr void set_engaged() noexcept
+            {
+                engaged_ = true;
+            }
 
-        constexpr void set_disengaged() noexcept
-        {
-            engaged_ = false;
-        }
-    };
+            constexpr void set_disengaged() noexcept
+            {
+                engaged_ = false;
+            }
+        };
 
-    template<typename T, typename Traits>
-    class optional_base<T, Traits, true> {
-        alignas(T) std::byte storage_[sizeof(T)] = {};
+        template<typename T, typename Traits>
+        class optional_base<T, Traits, true> {
+            alignas(T) std::byte storage_[sizeof(T)] = {};
 
-    public:
-        constexpr auto get()       noexcept { return reinterpret_cast<T*      >(&storage_); }
-        constexpr auto get() const noexcept { return reinterpret_cast<T const*>(&storage_); }
+        public:
+            constexpr auto get()       noexcept { return reinterpret_cast<T*      >(&storage_); }
+            constexpr auto get() const noexcept { return reinterpret_cast<T const*>(&storage_); }
 
-        constexpr auto engaged() const noexcept -> bool
-        {
-            return Traits::index(get()) == std::size_t(-1);
-        }
+            constexpr auto engaged() const noexcept -> bool
+            {
+                return Traits::index(get()) == std::size_t(-1);
+            }
 
-        constexpr void set_engaged() noexcept { }
+            constexpr void set_engaged() noexcept { }
 
-        constexpr void set_disengaged() noexcept
-        {
-            Traits::set_spare_representation(get(), 0);
-        }
-    };
+            constexpr void set_disengaged() noexcept
+            {
+                Traits::set_spare_representation(get(), 0);
+            }
+        };
+    }
 
     template<typename T, typename Traits = tombstone_traits<T>>
-    class optional: optional_base<T, Traits, Traits::spare_representations != 0> {
+    class optional: impl::optional_base<T, Traits, Traits::spare_representations != 0> {
     public:
         using value_type = T;
         using traits_type = Traits;
@@ -199,9 +201,6 @@ namespace cxxalg {
         constexpr auto operator=(optional const& that) noexcept -> optional&
             requires impl::copy_assignable<T>
         {
-            if (this == &that) [[unlikely]]
-                return *this;
-
             switch (this->has_value() | that.has_value() << 1) {
             case 0:
             default:
@@ -226,9 +225,6 @@ namespace cxxalg {
             noexcept(std::is_nothrow_move_assignable_v<T> and std::is_nothrow_move_constructible_v<T>) -> optional&
             requires impl::move_assignable<T>
         {
-            if (this == &that) [[unlikely]]
-                return *this;
-
             switch (this->has_value() | that.has_value() << 1) {
             case 0:
             default:
@@ -241,7 +237,8 @@ namespace cxxalg {
                 this->emplace(std::move(*that));
                 break;
             case 3:
-                *this->get() = std::move(*that);
+                if (this != &that)
+                    *this->get() = std::move(*that);
                 break;
             }
             return *this;

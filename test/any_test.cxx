@@ -84,6 +84,17 @@ TEST_CASE("any::operator=(any const&)", "[any]") {
     b = a;
     REQUIRE(any_cast<int>(a) == 5);
     REQUIRE(any_cast<int>(b) == 5);
+
+    // Self-assignment
+    a = "string content that requires allocation"s;
+    b = a;
+    a.reset();
+    a = a;
+    REQUIRE_FALSE(a.has_value());
+    b = b;
+    REQUIRE(b.has_value());
+    REQUIRE(b.type() == typeid(std::string));
+    REQUIRE(any_cast<std::string>(b) == "string content that requires allocation"sv);
 }
 
 TEST_CASE("any::operator=(any&&)", "[any]") {
@@ -94,6 +105,17 @@ TEST_CASE("any::operator=(any&&)", "[any]") {
     b = std::move(a);
     REQUIRE_FALSE(a.has_value());
     REQUIRE(any_cast<int>(b) == 5);
+
+    // Self-assignment
+    a = "string content that requires allocation"s;
+    b = std::move(a);
+    a.reset();
+    a = std::move(a);
+    REQUIRE_FALSE(a.has_value());
+    b = std::move(b);
+    REQUIRE(b.has_value());
+    REQUIRE(b.type() == typeid(std::string));
+    REQUIRE(any_cast<std::string>(b) == "string content that requires allocation"sv);
 }
 
 TEST_CASE("any::operator=(T&&)", "[any]") {

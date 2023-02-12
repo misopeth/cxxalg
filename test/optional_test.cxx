@@ -139,6 +139,14 @@ TEST_CASE("optional::operator=(optional const&)", "[optional]") {
     REQUIRE(t);
     REQUIRE(*s == "stringa che richiede allocazione");
     REQUIRE(*t == *s);
+
+    // Self-assignment
+    s.reset();
+    s = s;
+    REQUIRE_FALSE(s);
+    t = t;
+    REQUIRE(t);
+    REQUIRE(*t == "stringa che richiede allocazione");
 }
 
 TEST_CASE("optional::operator=(optional&&)", "[optional]") {
@@ -159,6 +167,14 @@ TEST_CASE("optional::operator=(optional&&)", "[optional]") {
     REQUIRE(s);
     REQUIRE(t);
     REQUIRE(*s == "");
+    REQUIRE(*t == "stringa che richiede allocazione");
+
+    // Self-assignment
+    s.reset();
+    s = std::move(s);
+    REQUIRE_FALSE(s);
+    t = std::move(t);
+    REQUIRE(t);
     REQUIRE(*t == "stringa che richiede allocazione");
 }
 

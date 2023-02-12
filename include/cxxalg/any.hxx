@@ -158,15 +158,13 @@ namespace cxxalg {
         // 1
         auto operator=(any const& that) -> any&
         {
-            if (this != &that) [[likely]]
-                any(that).swap(*this);
+            any(that).swap(*this);
             return *this;
         }
         // 2
         auto operator=(any&& that) -> any&
         {
-            if (this != &that) [[likely]]
-                any(std::move(that)).swap(*this);
+            any(std::move(that)).swap(*this);
             return *this;
         }
         // 3
