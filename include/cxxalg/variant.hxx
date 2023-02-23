@@ -213,9 +213,6 @@ namespace cxxalg {
         constexpr auto operator=(variant const& that) -> variant&
             requires (not trivially_copy_assignable_) and copy_assignable_
         {
-            if (this == &that) [[unlikely]]
-                return *this;
-
             switch (valueless_by_exception() | that.valueless_by_exception() << 1) {
             case 0: [[likely]]
                 if (index_ == that.index_) {
@@ -248,9 +245,6 @@ namespace cxxalg {
             noexcept(nothrow_move_constructible_ and nothrow_move_assignable_) -> variant&
             requires (not trivially_move_assignable_) and move_assignable_
         {
-            if (this == &that) [[unlikely]]
-                return *this;
-
             switch (valueless_by_exception() | that.valueless_by_exception() << 1) {
             case 0: [[likely]]
                 if (index_ == that.index_) {
@@ -360,7 +354,7 @@ namespace cxxalg {
                 if (index_ == that.index_) {
                     swap_[index_](storage_, that.storage_);
                 } else {
-                    auto&& tmp = variant(std::move(*this));
+                    auto tmp = variant(std::move(*this));
                     *this = std::move(that);
                     that = std::move(tmp);
                 }

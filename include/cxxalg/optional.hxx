@@ -237,8 +237,7 @@ namespace cxxalg {
                 this->emplace(std::move(*that));
                 break;
             case 3:
-                if (this != &that)
-                    *this->get() = std::move(*that);
+                *this->get() = std::move(*that);
                 break;
             }
             return *this;

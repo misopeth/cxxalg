@@ -175,7 +175,10 @@ TEST_CASE("optional::operator=(optional&&)", "[optional]") {
     REQUIRE_FALSE(s);
     t = std::move(t);
     REQUIRE(t);
-    REQUIRE(*t == "stringa che richiede allocazione");
+    std::string z = "stringa che richiede allocazione";
+    z = std::move(z);
+    // optional<std::string> self-assignment follows behaviour of std::string self-assignment
+    REQUIRE(t->size() == z.size());
 }
 
 TEST_CASE("optional::operator=(U&&)", "[optional]") {

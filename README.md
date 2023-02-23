@@ -1,3 +1,3 @@
 # cxxalg
 
-Reimplementation of algebric data types in C++20.
+Re-implementation of algebraic data types in C++20.

@@ -88,6 +88,16 @@ TEST_CASE("variant::operator=(variant const&)", "[variant]") {
     REQUIRE(w.index() == 1);
     REQUIRE(get<1>(v) == "ciao");
     REQUIRE(get<1>(w) == "ciao");
+
+    // Self-assignment
+    v = 5;
+    w = "stringa che richiede allocazione";
+    v = v;
+    REQUIRE(v.index() == 0);
+    REQUIRE(get<0>(v) == 5);
+    w = w;
+    REQUIRE(w.index() == 1);
+    REQUIRE(get<1>(w) == "stringa che richiede allocazione");
 }
 
 TEST_CASE("variant::operator=(variant&&)", "[variant]") {
@@ -98,6 +108,19 @@ TEST_CASE("variant::operator=(variant&&)", "[variant]") {
     REQUIRE(w.index() == 1);
     REQUIRE(get<1>(v) == "");
     REQUIRE(get<1>(w) == "ciao");
+
+    // Self-assignment
+    v = 5;
+    w = "stringa che richiede allocazione";
+    v = std::move(v);
+    REQUIRE(v.index() == 0);
+    REQUIRE(get<0>(v) == 5);
+    w = std::move(w);
+    REQUIRE(w.index() == 1);
+    std::string z = "stringa che richiede allocazione";
+    z = std::move(z);
+    // variant<..., std::string> self-assignment follows behaviour of std::string self-assignment
+    REQUIRE(get<1>(w).size() == z.size());
 }
 
 TEST_CASE("variant::operator=(T&&)", "[variant]") {
